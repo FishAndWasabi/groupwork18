@@ -60,6 +60,7 @@ class Counter:
     "execute" is the method to start the Counter main process.
     "get_tag_days","setupTable" and "get_commit_cnt" are the methods which serve as tools for Counter
     """
+
     def __init__(self, args):
         """
         Init Arguments
@@ -70,6 +71,14 @@ class Counter:
         self.rev = args.rev
         self.rev_range = args.rev_range
         self.cumulative = args.cumulative
+        # Catch the Invalid Reversion Range Error
+        self.max = self.rep.execute("git tag | grep %s | sort -n -k3 -t\".\" -r |head -n 1" % self.rev)[
+                   len(self.rev + "."):]
+        try:
+            assert int(self.max) >= self.rev_range
+        except AssertionError:
+            print("Invalid Reversion Range","Max rev %s"%self.max)
+            raise InvalidRangeError
         # Extract the time of the base commit from git
         self.base = self.rep.execute("git log -1 --pretty=format:\"%ct\" " + args.base)
         self.result = {'lv': [], 'hour': [], 'bugs': []}
@@ -105,10 +114,10 @@ class Counter:
         """
         Start counting
         """
-        rev1 = self.rev
+        rev1 = self.rev + "." + "0"
         # Fill the 'result'
         for sl in range(1, self.rev_range + 1):
-            rev2 = self.rev + "." + str(sl)
+            rev2 = self.rev
             gitcnt = "git rev-list --pretty=format:\"%ai\" " + rev1 + "..." + rev2
             gittag = "git log -1 --pretty=format:\"%ct\" " + rev2
             git_rev_list = self.rep.execute(gitcnt)
@@ -128,6 +137,7 @@ class Rep:
     "Rep" class is to represent the git repository
     "execute" can run the command in the git repository
     """
+
     def __init__(self, path):
         """
         Init the git repository and check if the repository is valid
@@ -157,7 +167,7 @@ class Rep:
         except subprocess.TimeoutExpired:
             p.kill()
             raise RuntimeError("Timeout during get git commits") from None
-        return outs
+        return outs.decode("utf-8")
 
 
 if __name__ == "__main__":
