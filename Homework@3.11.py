@@ -38,7 +38,7 @@ def getArg():
     """
     parser = argparse.ArgumentParser(description="Count the commit")
     parser.add_argument('-p', '--path', metavar='DIR', default='../linux/', help='path to Git Repository')
-    parser.add_argument('-r', '--rev', type=str, default='v4', help='First Reversion')
+    parser.add_argument('-r', '--rev', type=str, default='v4.4', help='First Reversion')
     parser.add_argument('-b', '--base', type=str, default='v4.4', help='Base Reversion')
     parser.add_argument('-g', '--rev-range', type=int, default=10, help='Range of Reversion')
     parser.add_argument('-c', '--cumulative', action='store_true', default=False, help='Enable cumulative arguments')
@@ -118,7 +118,7 @@ class Rep:
         self.result['lv'] = []
         self.result['hour'] = []
         self.result['bugs'] = []
-        rev1 = self.rev+ "." + str(0)
+        rev1 = self.rev
         # Extract the time of the base commit from git
         base = self.run_cmd("git log -1 --pretty=format:\"%ct\" " + self.base)
 
