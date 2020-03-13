@@ -1,3 +1,17 @@
+# /usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+
+"""
+
+__author__ = "Group No.18 in DSP of Lanzhou University"
+__copyright__ = "Copyright 2020, Study Project in Lanzhou University , China"
+__license__ = "GPL V3"
+__version__ = "0.1"
+__maintainer__ = "Yuming Chen, Huiyi Liu"
+__email__ = "Chenym18@lzu.edu.cn"
+__status__ = "Experimental"
+
 import git
 import pandas as pd
 import re
@@ -5,11 +19,11 @@ import re
 
 class Rep:
     def __init__(self, path):
-        self.r = git.Git(path)
+        self.rep = git.Git(path)
 
     def gitFileDynamics(self, fileName, kernelRange):
-        cmd = ' '.join(["git", "-P", "log", "--stat", "--oneline", "--follow", kernelRange, fileName])
-        data = self.r.execute(cmd).split('\n')
+        cmd = ["git", "-P", "log", "--stat", "--oneline", "--follow", kernelRange, fileName]
+        data = self.rep.execute(cmd).split('\n')
         lines = []
         num = 0
         for line in data[::3]:
@@ -22,13 +36,15 @@ class Rep:
             # insertions
             pattern = re.compile(r'\d+ insertions|\d+ insertion')
             count = re.search(pattern, data[num + 2]).group().split(' ')[0]
-            lines.append([hashid,desc,fileName,count])
+            lines.append([hashid, desc, fileName, count])
             num += 3
 
-        df = pd.DataFrame(columns=['HashNum','Description','FileName','Insertion'],data=lines)
+        df = pd.DataFrame(columns=['HashNum', 'Description', 'FileName', 'Insertion'], data=lines)
         return df
 
 
-r = Rep('linux')
-df = r.gitFileDynamics("kernel/sched/core.c", "v4.4..v4.5")
-print(df.info)
+if __name__ == "__main__":
+    path = '..\linux'
+    r = Rep(path)
+    df = r.gitFileDynamics("kernel/sched/core.c", "v4.4..v4.5")
+    print(df.info)
