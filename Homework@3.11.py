@@ -50,7 +50,7 @@ def getArg():
 
 def get_commit_cnt(outs):
     """
-    Changes the
+    Changes
     :param outs:
     :return:
     """
