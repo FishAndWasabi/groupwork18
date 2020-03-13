@@ -16,37 +16,42 @@ __maintainer__ = "Yuming Chen"
 __email__ = "Chenym18@lzu.edu.cn"
 __status__ = "Experimental"
 
-import os, re, sys, subprocess, argparse
+import os, re, subprocess, argparse
 from datetime import datetime as dt
 import pandas as pd
 
 
 class InvalidRevError(Exception):
     pass
-
-
+class InvalidRangeError(Exception):
+    pass
 class InvalidPathError(EnvironmentError):
     pass
 
 
 def getArg():
     """
-    Using 'argparse' to handle the argument.
-    :return: args
+    Using the "argparse" to handel argument which is better and more comprehensive than the "sys".
+
+    Returns:
+        args: A dict storing arguments
     """
     parser = argparse.ArgumentParser(description="Count the commit")
     parser.add_argument('-p', '--path', metavar='DIR', default='../linux/', help='path to Git Repository')
     parser.add_argument('-r', '--rev', type=str, default='v4', help='First Reversion')
-    parser.add_argument('-g', '--rev-range', type=int, default=10, help='The range of the Reversion')
+    parser.add_argument('-b', '--base', type=str, default='v4.4', help='Base Reversion')
+    parser.add_argument('-g', '--rev-range', type=int, default=10, help='Range of Reversion')
     parser.add_argument('-c', '--cumulative', action='store_true', default=False, help='Enable cumulative arguments')
     return parser.parse_args()
 
 
 def get_commit_cnt(outs):
     """
-    Changes
-    :param outs:
-    :return:
+    Args:
+        outs:
+
+    Returns:
+        len(cnt): The number of bugs
     """
     # if we request something that does not exist -> 0
     cnt = re.findall('[0-9]*-[0-9]*-[0-9]*', str(outs))
@@ -54,15 +59,26 @@ def get_commit_cnt(outs):
 
 
 def get_tag_days(outs, base):
-    return ((int(outs) - base)) // 3600
+    """
+
+    Args:
+        outs: The reversion list.
+        base: The base commit.
+
+    Returns:
+        hours : Hours between the time of the base commit
+    """
+    return int(outs)-base//3600
 
 
 class Rep:
     def __init__(self, args):
+        # Init Arguments
         self.path = args.path
         self.rev = args.rev
         self.rev_range = args.rev_range
         self.cumulative = args.cumulative
+        self.base = args.base
         self.result = {}
         # Verify the repository
         try:
@@ -72,6 +88,14 @@ class Rep:
             raise InvalidPathError from None
 
     def run_cmd(self, cmd):
+        """
+
+        Args:
+            cmd: Command line
+
+        Returns:
+            outs: The output of command line
+        """
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, shell=True,
                              cwd=self.path)
         try:
@@ -85,13 +109,19 @@ class Rep:
         return outs
 
     def count(self):
+        """
+
+        Returns:
+
+        """
         # Init the 'result' dict
         self.result['lv'] = []
         self.result['hour'] = []
         self.result['bugs'] = []
-        rev1 = self.rev + "." + str(0)
+        rev1 = self.rev+ "." + str(0)
         # Extract the time of the base commit from git
-        base = self.run_cmd("git log -1 --pretty=format:\"%ct\" " + rev1)
+        base = self.run_cmd("git log -1 --pretty=format:\"%ct\" " + self.base)
+
         # Fill the 'result'
         for sl in range(1, self.rev_range + 1):
             rev2 = self.rev + "." + str(sl)
@@ -101,14 +131,12 @@ class Rep:
             commit_cnt = get_commit_cnt(git_rev_list)
             if not self.cumulative:
                 rev1 = rev2
-            if commit_cnt:
-                git_tag_date = self.run_cmd(gittag)
-                days = get_tag_days(git_tag_date, int(base))
-                self.result['lv'].append(sl)
-                self.result['hour'].append(days)
-                self.result['bugs'].append(commit_cnt)
-            else:
-                break
+            git_tag_date = self.run_cmd(gittag)
+            days = get_tag_days(git_tag_date, int(base))
+            self.result['lv'].append(sl)
+            self.result['hour'].append(days)
+            self.result['bugs'].append(commit_cnt)
+
         # Create a data frame to store the count result which is better than printing directly.
         df = pd.DataFrame(data=self.result)
         # Reformat the Table
