@@ -22,22 +22,16 @@ import pandas as pd
 
 
 class InvalidRevError(Exception):
-    """
-
-    """
     pass
 
 
 class InvalidPathError(EnvironmentError):
-    """
-
-    """
     pass
 
 
 def getArg():
     """
-    Using argparse to handle the argument.
+    Using 'argparse' to handle the argument.
     :return: args
     """
     parser = argparse.ArgumentParser(description="Count the commit")
