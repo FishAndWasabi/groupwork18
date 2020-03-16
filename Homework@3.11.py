@@ -25,7 +25,10 @@ __maintainer__ = "Yuming Chen"
 __email__ = "Chenym18@lzu.edu.cn"
 __status__ = "Experimental"
 
-import os, re, subprocess, argparse
+import os, re, time
+import argparse
+from subprocess import Popen, PIPE, DEVNULL
+from subprocess import CalledProcessError, TimeoutExpired
 import pandas as pd
 
 
@@ -72,22 +75,23 @@ class Counter:
         self.rev_range = args.rev_range
         self.cumulative = args.cumulative
         # Catch the Invalid Reversion Range Error
-        self.max = self.rep.execute("git tag | grep %s | sort -n -k3 -t\".\" -r |head -n 1" % self.rev)[
-                   len(self.rev + "."):]
+        self.max = self.rep.execute(["git", "tag", "|", "grep", self.rev, "|", "sort", "-n", "-k3", "-t\".\"", "-r", "|","head", "-n", "1"])
+        self.max = self.max[len(self.rev + "."):]
         try:
             assert int(self.max) >= self.rev_range
         except AssertionError:
-            print("Invalid Reversion Range","Max rev %s"%self.max)
+            print("Invalid Reversion Range", "Max rev %s" % self.max)
             raise InvalidRangeError
         # Extract the time of the base commit from git
-        self.base = self.rep.execute("git log -1 --pretty=format:\"%ct\" " + args.base)
+        self.base = self.rep.execute(["git", "log", "-1", "--pretty=format:\"%ct\" ", args.base])
         self.result = {'lv': [], 'hour': [], 'bugs': []}
 
     def get_tag_days(self, git_tag_date):
         """
         Count the hours between given tag date and base tag date
         """
-        return int(git_tag_date) - int(self.base) // 3600
+        SecPerHour = 3600
+        return int(git_tag_date) - int(self.base) // SecPerHour
 
     def setupTable(self):
         """
@@ -118,8 +122,8 @@ class Counter:
         # Fill the 'result'
         for sl in range(1, self.rev_range + 1):
             rev2 = self.rev
-            gitcnt = "git rev-list --pretty=format:\"%ai\" " + rev1 + "..." + rev2
-            gittag = "git log -1 --pretty=format:\"%ct\" " + rev2
+            gitcnt = ["git", "rev-list", "--pretty=format:\"%ai\"", rev1 + "..." + rev2]
+            gittag = ["git", "log", "-1", "--pretty=format:\"%ct\" ", rev2]
             git_rev_list = self.rep.execute(gitcnt)
             commit_cnt = self.get_commit_cnt(git_rev_list)
             if not self.cumulative:
@@ -157,14 +161,14 @@ class Rep:
         Run the git command and return the output.
         Deal with the timeout error and Catch the invalid reversion number.
         """
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, shell=True,
-                             cwd=self.path)
+        p = Popen(cmd, stdout=PIPE, stderr=DEVNULL, shell=True,
+                  cwd=self.path)
         try:
             outs, errs = p.communicate(timeout=15)
             if p.returncode:
                 print('Invalid Reversion')
-                raise subprocess.CalledProcessError(p.returncode, cmd) from None
-        except subprocess.TimeoutExpired:
+                raise CalledProcessError(p.returncode, cmd) from None
+        except TimeoutExpired:
             p.kill()
             raise RuntimeError("Timeout during get git commits") from None
         return outs.decode("utf-8")
