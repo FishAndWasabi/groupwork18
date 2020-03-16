@@ -10,26 +10,31 @@ specific sublevel it will terminate the loop
 Fix list:
 1. Add specific Exception class (rewrite)
 2. Use "argparse" to handel arguments
-3. Add error handling to catch the invalid reversion, invalid git repository and invalid reversion range
+3. Add error handling to catch the invalid reversion,
+invalid git repository and invalid reversion range
 4. Restructure the code into two class: "Counter" and "Rep"
 5. Complete the documentation
 6. Add header in this file
 7. Change some detail codes
+---------3.16 update---------
+8. Rewrite import
+9. Add function("write log") to store the error log
+10. Fix magic number error (SecPerHour = 3600)
+11. Change the Popen arguments into list type
 """
 
-__author__ = "Group No.18 in DSP of Lanzhou University"
+__author__ = "Group No.18 in DSP of Lanzhou University: Yuming Chen, Huiyi Liu"
 __copyright__ = "Copyright 2020, Study Project in Lanzhou University , China"
 __license__ = "GPL V3"
 __version__ = "0.1"
-__maintainer__ = "Yuming Chen"
-__email__ = "Chenym18@lzu.edu.cn"
+__maintainer__ = "Yuming Chen, Huiyi Liu"
 __status__ = "Experimental"
 
 import os, re, time
-import argparse
+from argparse import ArgumentParser
 from subprocess import Popen, PIPE, DEVNULL
 from subprocess import CalledProcessError, TimeoutExpired
-import pandas as pd
+from pandas import DataFrame
 
 
 class InvalidRevError(Exception):
@@ -40,6 +45,16 @@ class InvalidPathError(EnvironmentError):
     pass
 
 
+def write_log(msg):
+    """
+    Write Error message into log file
+    Args:
+        msg: Error message
+    """
+    with open('errors.log', 'a+') as f:
+        f.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + ' : ' + msg + '\n')
+
+
 def getArg():
     """
     "argparse" is much better and more comprehensive than the "sys".
@@ -47,7 +62,7 @@ def getArg():
     Returns:
         args: A dict storing arguments
     """
-    parser = argparse.ArgumentParser(description="Count the commit")
+    parser = ArgumentParser(description="Count the commit")
     parser.add_argument('-p', '--path', metavar='DIR', default='../linux/', help='path to Git Repository')
     parser.add_argument('-r', '--rev', type=str, default='v4.4', help='First Reversion')
     parser.add_argument('-b', '--base', type=str, default='v4.4', help='Base Reversion')  # Not sure to do that
@@ -75,12 +90,14 @@ class Counter:
         self.rev_range = args.rev_range
         self.cumulative = args.cumulative
         # Catch the Invalid Reversion Range Error
-        self.max = self.rep.execute(["git", "tag", "|", "grep", self.rev, "|", "sort", "-n", "-k3", "-t\".\"", "-r", "|","head", "-n", "1"])
+        self.max = self.rep.execute(
+            ["git", "tag", "|", "grep", self.rev, "|", "sort", "-n", "-k3", "-t\".\"", "-r", "|", "head", "-n", "1"])
         self.max = self.max[len(self.rev + "."):]
         try:
             assert int(self.max) >= self.rev_range
         except AssertionError:
             print("Invalid Reversion Range", "Max rev %s" % self.max)
+            write_log('Invalid Reversion Range: %s' % self.max)
             raise InvalidRangeError
         # Extract the time of the base commit from git
         self.base = self.rep.execute(["git", "log", "-1", "--pretty=format:\"%ct\" ", args.base])
@@ -100,7 +117,7 @@ class Counter:
             title: string
             df: Table using pandas.DataFrame
         """
-        df = pd.DataFrame(data=self.result)
+        df = DataFrame(data=self.result)
         # Reformat the Table
         df.set_index('lv')  # Change index
         title = "#sublevel commits %s stable fixes" % self.rev  # Add title
@@ -122,7 +139,7 @@ class Counter:
         # Fill the 'result'
         for sl in range(1, self.rev_range + 1):
             rev2 = self.rev
-            gitcnt = ["git", "rev-list", "--pretty=format:\"%ai\"", rev1 + "..." + rev2]
+            gitcnt = ["git", "rev-list", "--pretty=format:\"%ai\"", "%s...%s" % (rev1, rev2)]
             gittag = ["git", "log", "-1", "--pretty=format:\"%ct\" ", rev2]
             git_rev_list = self.rep.execute(gitcnt)
             commit_cnt = self.get_commit_cnt(git_rev_list)
@@ -154,6 +171,7 @@ class Rep:
             assert os.path.exists(os.path.join(self.path, '.git')), True
         except AssertionError:
             print('Invalid Git Repository')
+            write_log('Invalid Git Repository: %s' % self.path)
             raise InvalidPathError from None
 
     def execute(self, cmd):
@@ -167,9 +185,11 @@ class Rep:
             outs, errs = p.communicate(timeout=15)
             if p.returncode:
                 print('Invalid Reversion')
+                write_log('Invalid Reversion: %s' % cmd)
                 raise CalledProcessError(p.returncode, cmd) from None
         except TimeoutExpired:
             p.kill()
+            write_log('Timeout during get git commits: %s' % cmd)
             raise RuntimeError("Timeout during get git commits") from None
         return outs.decode("utf-8")
 
