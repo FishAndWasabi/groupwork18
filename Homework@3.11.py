@@ -2,10 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-get the commit count per sublevel pointwise or cumulative (c)
-arguments is the tag as displayed by git tag and the number
-of sublevels to be counted. If count is out of range for a
-specific sublevel it will terminate the loop
+1. Purpose:
+Get the commit count per sublevel pointwise or cumulative (c).
+2. Arguments:
+a) the tag as displayed by git tag
+b) the number of sublevels to be counted
+c) the base tag to get the time of the base commit.
+d) the boolean argument to enable or disable cumulative.
+If count is out of range for a specific sublevel
+it will terminate the loop
 
 Fix list:
 1. Add specific Exception class (rewrite)
@@ -21,13 +26,15 @@ invalid git repository and invalid reversion range
 9. Add function("write log") to store the error log
 10. Fix magic number error (SecPerHour = 3600)
 11. Change the Popen arguments into list type
+12. Modify the description
 """
 
 __author__ = "Group No.18 in DSP of Lanzhou University: Yuming Chen, Huiyi Liu"
 __copyright__ = "Copyright 2020, Study Project in Lanzhou University , China"
 __license__ = "GPL V3"
 __version__ = "0.1"
-__maintainer__ = "Yuming Chen, Huiyi Liu"
+__maintainer__ = ["Yuming Chen", "Huiyi Liu"]
+__email__ = ["chenym18@lzu.edu.cn","liuhuiyi18@lzu.edu.cn"]
 __status__ = "Experimental"
 
 import os, re, time
