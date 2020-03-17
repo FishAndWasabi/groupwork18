@@ -2,15 +2,17 @@
 # -*- coding: utf-8 -*-
 
 """
+Description:
 1. Purpose:
 Get the commit count per sublevel pointwise or cumulative (c).
 2. Arguments:
-a) the tag as displayed by git tag
-b) the number of sublevels to be counted
+a) the tag as displayed by git tag.
+b) the number of sublevels to be counted.
 c) the base tag to get the time of the base commit.
 d) the boolean argument to enable or disable cumulative.
+e) the path of the git repository.
 If count is out of range for a specific sublevel
-it will terminate the loop
+it will terminate the loop.
 
 Fix list:
 1. Add specific Exception class (rewrite)
@@ -71,7 +73,7 @@ def getArg():
     """
     parser = ArgumentParser(description="Count the commit")
     parser.add_argument('-p', '--path', metavar='DIR', default='../linux/', help='path to Git Repository')
-    parser.add_argument('-r', '--rev', type=str, default='v4.4', help='First Reversion')
+    parser.add_argument('-r', '--rev', type=str, default='v4', help='First Reversion')
     parser.add_argument('-b', '--base', type=str, default='v4.4', help='Base Reversion')  # Not sure to do that
     parser.add_argument('-g', '--rev-range', type=int, default=10, help='Range of Reversion')
     # Use boolean replace 1 0
@@ -97,8 +99,7 @@ class Counter:
         self.rev_range = args.rev_range
         self.cumulative = args.cumulative
         # Catch the Invalid Reversion Range Error
-        self.max = self.rep.execute(
-            ["git", "tag", "|", "grep", self.rev, "|", "sort", "-n", "-k3", "-t\".\"", "-r", "|", "head", "-n", "1"])
+        self.max = self.rep.execute("git tag |grep v4.4 |sort -n -k3 -t\".\" -r |head -n 1")
         self.max = self.max[len(self.rev + "."):]
         try:
             assert int(self.max) >= self.rev_range
@@ -107,7 +108,8 @@ class Counter:
             write_log('Invalid Reversion Range: %s' % self.max)
             raise InvalidRangeError
         # Extract the time of the base commit from git
-        self.base = self.rep.execute(["git", "log", "-1", "--pretty=format:\"%ct\" ", args.base])
+        # The output is "time" so remove the "time"
+        self.base = self.rep.execute(['git', 'log', '-1', '--pretty=format:\"%ct\"', args.base]).replace('\"','')
         self.result = {'lv': [], 'hour': [], 'bugs': []}
 
     def get_tag_days(self, git_tag_date):
@@ -145,14 +147,14 @@ class Counter:
         rev1 = self.rev + "." + "0"
         # Fill the 'result'
         for sl in range(1, self.rev_range + 1):
-            rev2 = self.rev
+            rev2 = self.rev + "." + str(sl)
             gitcnt = ["git", "rev-list", "--pretty=format:\"%ai\"", "%s...%s" % (rev1, rev2)]
-            gittag = ["git", "log", "-1", "--pretty=format:\"%ct\" ", rev2]
+            gittag = ["git", "log", "-1", "--pretty=format:\"%ct\"", rev2]
             git_rev_list = self.rep.execute(gitcnt)
             commit_cnt = self.get_commit_cnt(git_rev_list)
             if not self.cumulative:
                 rev1 = rev2
-            git_tag_date = self.rep.execute(gittag)
+            git_tag_date = self.rep.execute(gittag).replace('\"','')   # The output is "time" so remove the "time"
             days = self.get_tag_days(git_tag_date)
             self.result['lv'].append(sl)
             self.result['hour'].append(days)
@@ -186,10 +188,9 @@ class Rep:
         Run the git command and return the output.
         Deal with the timeout error and Catch the invalid reversion number.
         """
-        p = Popen(cmd, stdout=PIPE, stderr=DEVNULL, shell=True,
-                  cwd=self.path)
+        p = Popen(cmd, stdout=PIPE, stderr=DEVNULL, shell=False, cwd=self.path)
         try:
-            outs, errs = p.communicate(timeout=15)
+            outs, errs = p.communicate(timeout=100)
             if p.returncode:
                 print('Invalid Reversion')
                 write_log('Invalid Reversion: %s' % cmd)
