@@ -45,6 +45,5 @@ class Rep:
 
 if __name__ == "__main__":
     path = '..\linux'
-    r = Rep(path)
-    df = r.gitFileDynamics("kernel/sched/core.c", "v4.4..v4.5")
-    print(df.info)
+    r = git.Repo(path)
+    print(r.git.log())
