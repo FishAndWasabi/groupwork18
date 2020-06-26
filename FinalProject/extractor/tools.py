@@ -70,20 +70,22 @@ DATE = re.compile('^Date:   .*', re.IGNORECASE)
 LOG_PATH = 'log'
 
 
-def error_log(message):
+def error_log(message: str):
     """
     Record error message when data extracting
     """
     print(message)
-    with open(LOG_PATH,'a+') as f:
+    with open(LOG_PATH, 'a+') as f:
         f.write(message)
 
 
 def get_all_fix_bug_commits():
     """
+    Describe:
     1. Get all the hash ID of commits which have Fix tag
     and the hash ID of commits which be pointed to by Fix tag.
-    2. Store the result into dict.  { bug commit : fix commit }
+    2. Store the result into dict -> easy to dump into json file
+    { bug commit : fix commit }
     """
     cmd = ["git", "log", "-P", "--no-merges"]
     data = REP.execute(cmd, False)
@@ -108,15 +110,16 @@ def get_all_fix_bug_commits():
 
 def get_all_author():
     """
+    Describe:
     1. Get all of the authors in linx-stable and the hash ID of their commits
-    2. Store the result into dict.  { author : [commits] }
+    2. Store the result into dict  -> easy to dump into json file
+    { author : [commits] }
+    3. Use --pretty=format:"%an&%h" as git shell
+    1) %h: Short Hash ID make it easy to search.
+        Because the bug commit which is pointed by current commit is short ID.
+    2) &: Make it easy to split the author name and hash ID.
     """
-
-    # Use '--pretty=format:"%an&%h" '
-    # 1) %h: Short Hash ID make it easy to search.
-    #        Because the bug commit which is pointed by current commit is short ID.
-    # 2) &: Make it easy to split the author name and hash ID.
-    cmd = ["git", "log", '--pretty=format:"%an&%h" ', "--no-merges"]
+    cmd = ["git", "log", '--pretty=format:"%an&%h"', "--no-merges"]
     data = REP.execute(cmd, False)
     # The result of git commit:
     # "Linus Torvalds&b3a9e3b9622a"
@@ -131,11 +134,19 @@ def get_all_author():
 
 
 class CommitsFeatureExtractor:
-    def __init__(self, bug, fix):
+    """
+    Describe:
+    This is a class to get the features of fix-bug commits
+    """
+    def __init__(self, bug: str, fix: str):
         """
+        Describe:
+        Init the extractor
+
+        Argus:
         1. bug: The hash ID of Bug commit
         2. fix: The hash ID of Fix commit
-        Fix commit -> Bug commit
+                Fix commit -> Bug commit
         """
         self.__bug = bug
         self.__fix = fix
@@ -144,9 +155,10 @@ class CommitsFeatureExtractor:
 
     def __path_position(self):
         """
+        Describe:
         1. Get the paths of files whose change was signed by Fix commit
         2. Get the position(line) of file whose change was signed by Fix commit
-        3. Store the result into private attribute - "self.__path_position_dict"
+        3. Store the result into private attribute -> self.__path_position_dict
         { path: [ positions ]}
         """
         cmd = ["git", "show", self.__fix]
@@ -176,6 +188,7 @@ class CommitsFeatureExtractor:
 
     def __commit_list(self, data):
         """
+        Describe:
         1. Get the hash ID of given commit
         2. Get the date of given commit
         3. Store the result is a list [(commit,date)]
@@ -192,9 +205,10 @@ class CommitsFeatureExtractor:
 
     def get_code(self):
         """
-        Get the code of Bug commit
-        The commit format:
-        "@@ -282,9 +282,16 @@
+        Describe:
+        1. Get the code of Bug commit
+        2. The code of commit's format:
+        @@ -282,9 +282,16 @@
                     ...
                     code
                     ...
@@ -202,7 +216,6 @@ class CommitsFeatureExtractor:
                     ...
                     code
                     ...
-        "
         """
         cmd = ['git', 'show', self.__bug]
         bug_data = REP.execute(cmd, False).split('\n')
@@ -211,7 +224,8 @@ class CommitsFeatureExtractor:
             if POSITION.match(bug_data[index]):
                 code = bug_data[index][POSITION.match(bug_data[index]).span()[1]:].strip()
                 index += 1
-                while index <= len(bug_data) - 1 and not (FILE_PATH.match(bug_data[index]) or POSITION.match(bug_data[index])):
+                while index <= len(bug_data) - 1 and not (
+                        FILE_PATH.match(bug_data[index]) or POSITION.match(bug_data[index])):
                     code += bug_data[index][1:] + '\n'
                     index += 1
                 codes += code + '\n'
@@ -219,6 +233,7 @@ class CommitsFeatureExtractor:
 
     def get_commit_lists(self):
         """
+        Describe:
         1. Get the commit list (Not only one list) between the Fix commit and the Bug commit
         2. Store the result into list [ [ (fix commit, time),...,(bug commit, time)],[ (fix commit, time),...,(bug commit, time)]...]
         """
@@ -247,8 +262,9 @@ class CommitsFeatureExtractor:
 
     def get_fix_time(self):
         """
-        Calculate the time difference between the Fix commit and the Bug commit
-        The result is average = time_diff/number_commits
+        Describe:
+        1. Calculate the time difference between the Fix commit and the Bug commit
+        2. The result is average = time_diff/number_commits
         """
         if not self.__commit_lists:
             self.get_commit_lists()
@@ -260,9 +276,10 @@ class CommitsFeatureExtractor:
 
     def get_fix_distance(self):
         """
-        Calculate the number of commits between the Fix commit and the Bug commit
+        Describe:
+        1. Calculate the number of commits between the Fix commit and the Bug commit
         (Include Fix commit, Not include Bug commit)
-        The result is average = fix_distance/number_commits
+        2. The result is average = fix_distance/number_commits
         """
         if not self.__commit_lists:
             self.get_commit_lists()
@@ -274,8 +291,9 @@ class CommitsFeatureExtractor:
 
     def get_find_time(self):
         """
-        Calculate the time difference between the first commit in the commits list and the Bug commit
-        The result is average = time_diff/number_commits
+        Describe:
+        1. Calculate the time difference between the first commit in the commits list and the Bug commit
+        2. The result is average = time_diff/number_commits
         """
         if not self.__commit_lists:
             self.get_commit_lists()

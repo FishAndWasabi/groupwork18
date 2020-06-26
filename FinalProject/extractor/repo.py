@@ -21,15 +21,31 @@ class InvalidPathError(EnvironmentError):
 
 class Rep:
     """
-    "Rep" class is to represent the git repository
-    "execute" can run the command in the git repository
+    Describe:
+    1. "Rep" class is to represent the git repository
+    2. "execute" can run the command in the git repository
+
+    Doctest:
+    >>> rep = Rep('a')
+    Traceback (most recent call last):
+        ...
+    repo.InvalidPathError
+    >>> rep = Rep('linux-stable')
+    >>> rep.execute('a',True)
+    Traceback (most recent call last):
+        ...
+    subprocess.CalledProcessError: Command 'a' returned non-zero exit status 1.
+    >>> rep.execute( ["git", "log", '--pretty=format:"%an&%h"', "--no-merges","-3"],False)
+    '"Linus Torvalds&b3a9e3b9622a"\n"Thomas Cedeno&39030e1351aa"\n"David Sterba&55e20bd12a56"'
     """
 
-    def __init__(self, path):
+    def __init__(self, path: str):
         """
+        Describe:
         Init the git repository and check if the repository is valid
+
         Args:
-            path: repository path
+        path: repository path
         """
         self.path = path
         # Verify the repository
@@ -39,10 +55,11 @@ class Rep:
             print('Invalid Git Repository')
             raise InvalidPathError from None
 
-    def execute(self, cmd, shell):
+    def execute(self, cmd: str or list, shell: bool):
         """
-        Run the git command and return the output.
-        Deal with the timeout error and Catch the invalid reversion number.
+        Describe:
+        1. Run the git command and return the output.
+        2. Deal with the timeout error and Catch the invalid reversion number.
         """
         p = Popen(cmd, stdout=PIPE, stderr=DEVNULL, shell=shell, cwd=self.path)
         try:
