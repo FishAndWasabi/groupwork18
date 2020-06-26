@@ -1,0 +1,464 @@
+struct smb_version_values {	__u32		exclusive_lock_type;
+	__u32		shared_lock_type;
+	__u32		unlock_lock_type;
+	size_t		header_preamble_size;
+	size_t		header_size;
+	size_t		max_header_size;
+	size_t		read_rsp_size;
+
+cifs_readv_receive(struct TCP_Server_Info *server, struct mid_q_entry *mid)	unsigned int data_offset, data_len;
+	struct cifs_readdata *rdata = mid->callback_data;
+	char *buf = server->smallbuf;
+	unsigned int buflen = get_rfc1002_length(buf) + 4;
+	unsigned int buflen = get_rfc1002_length(buf) +
+		server->vals->header_preamble_size;
+	bool use_rdma_mr = false;
+
+	cifs_dbg(FYI, "%s: mid=%llu offset=%llu bytes=%u\n",
+
+cifs_readv_receive(struct TCP_Server_Info *server, struct mid_q_entry *mid)		return cifs_readv_discard(server, mid);
+	}
+
+	data_offset = server->ops->read_data_offset(buf) + 4;
+	data_offset = server->ops->read_data_offset(buf) +
+		server->vals->header_preamble_size;
+	if (data_offset < server->total_read) {
+		/*
+		 * win2k8 sometimes sends an offset of 0 when the read
+
+standard_receive3(struct TCP_Server_Info *server, struct mid_q_entry *mid)	unsigned int pdu_length = get_rfc1002_length(buf);
+
+	/* make sure this will fit in a large buffer */
+	if (pdu_length > CIFSMaxBufSize + MAX_HEADER_SIZE(server) - 4) {
+	if (pdu_length > CIFSMaxBufSize + MAX_HEADER_SIZE(server) -
+		server->vals->header_preamble_size) {
+		cifs_dbg(VFS, "SMB response too long (%u bytes)\n", pdu_length);
+		cifs_reconnect(server);
+		wake_up(&server->response_q);
+
+standard_receive3(struct TCP_Server_Info *server, struct mid_q_entry *mid)
+	/* now read the rest */
+	length = cifs_read_from_socket(server, buf + HEADER_SIZE(server) - 1,
+				pdu_length - HEADER_SIZE(server) + 1 + 4);
+				       pdu_length - HEADER_SIZE(server) + 1
+				       + server->vals->header_preamble_size);
+
+	if (length < 0)
+		return length;
+	server->total_read += length;
+
+cifs_demultiplex_thread(void *p)			continue;
+
+		/* make sure we have enough to get to the MID */
+		if (pdu_length < HEADER_SIZE(server) - 1 - 4) {
+		if (pdu_length < HEADER_SIZE(server) - 1 -
+		    server->vals->header_preamble_size) {
+			cifs_dbg(VFS, "SMB response too short (%u bytes)\n",
+				 pdu_length);
+			cifs_reconnect(server);
+
+cifs_demultiplex_thread(void *p)		}
+
+		/* read down to the MID */
+		length = cifs_read_from_socket(server, buf + 4,
+					       HEADER_SIZE(server) - 1 - 4);
+		length = cifs_read_from_socket(server,
+			     buf + server->vals->header_preamble_size,
+			     HEADER_SIZE(server) - 1
+			     - server->vals->header_preamble_size);
+		if (length < 0)
+			continue;
+		server->total_read += length;
+
+struct smb_version_values smb1_values = {	.exclusive_lock_type = 0,
+	.shared_lock_type = LOCKING_ANDX_SHARED_LOCK,
+	.unlock_lock_type = 0,
+	.header_preamble_size = 4,
+	.header_size = sizeof(struct smb_hdr),
+	.max_header_size = MAX_CIFS_HDR_SIZE,
+	.read_rsp_size = sizeof(READ_RSP),
+
+smb2_check_message(char *buf, unsigned int length, struct TCP_Server_Info *srvr)		}
+		return 1;
+	}
+	if (len > CIFSMaxBufSize + MAX_SMB2_HDR_SIZE - 4) {
+	if (len > CIFSMaxBufSize + MAX_SMB2_HDR_SIZE -
+	    srvr->vals->header_preamble_size) {
+		cifs_dbg(VFS, "SMB length greater than maximum, mid=%llu\n",
+			 mid);
+		return 1;
+
+smb2_check_message(char *buf, unsigned int length, struct TCP_Server_Info *srvr)		}
+	}
+
+	if (4 + len != length) {
+	if (srvr->vals->header_preamble_size + len != length) {
+		cifs_dbg(VFS, "Total length %u RFC1002 length %u mismatch mid %llu\n",
+			 length, 4 + len, mid);
+			 length, srvr->vals->header_preamble_size + len, mid);
+		return 1;
+	}
+
+	clc_len = smb2_calc_size(hdr);
+
+	if (4 + len != clc_len) {
+	if (srvr->vals->header_preamble_size + len != clc_len) {
+		cifs_dbg(FYI, "Calculated size %u length %u mismatch mid %llu\n",
+			 clc_len, 4 + len, mid);
+			 clc_len, srvr->vals->header_preamble_size + len, mid);
+		/* create failed on symlink */
+		if (command == SMB2_CREATE_HE &&
+		    shdr->Status == STATUS_STOPPED_ON_SYMLINK)
+			return 0;
+		/* Windows 7 server returns 24 bytes more */
+		if (clc_len + 20 == len && command == SMB2_OPLOCK_BREAK_HE)
+		if (clc_len + 24 - srvr->vals->header_preamble_size == len && command == SMB2_OPLOCK_BREAK_HE)
+			return 0;
+		/* server can return one byte more due to implied bcc[0] */
+		if (clc_len == 4 + len + 1)
+		if (clc_len == srvr->vals->header_preamble_size + len + 1)
+			return 0;
+
+		/*
+
+smb2_check_message(char *buf, unsigned int length, struct TCP_Server_Info *srvr)		 * Log the server error (once), but allow it and continue
+		 * since the frame is parseable.
+		 */
+		if (clc_len < 4 /* RFC1001 header size */ + len) {
+		if (clc_len < srvr->vals->header_preamble_size /* RFC1001 header size */ + len) {
+			printk_once(KERN_WARNING
+				"SMB2 server sent bad RFC1001 len %d not %d\n",
+				len, clc_len - 4);
+				len, clc_len - srvr->vals->header_preamble_size);
+			return 0;
+		}
+
+
+smb2_query_symlink(const unsigned int xid, struct cifs_tcon *tcon,	unsigned int sub_offset;
+	unsigned int print_len;
+	unsigned int print_offset;
+	struct cifs_ses *ses = tcon->ses;
+	struct TCP_Server_Info *server = ses->server;
+
+	cifs_dbg(FYI, "%s: path: %s\n", __func__, full_path);
+
+
+smb2_query_symlink(const unsigned int xid, struct cifs_tcon *tcon,	}
+
+	if (le32_to_cpu(err_buf->ByteCount) < sizeof(struct smb2_symlink_err_rsp) ||
+	    get_rfc1002_length(err_buf) + 4 < SMB2_SYMLINK_STRUCT_SIZE) {
+	    get_rfc1002_length(err_buf) + server->vals->header_preamble_size < SMB2_SYMLINK_STRUCT_SIZE) {
+		kfree(utf16_path);
+		return -ENOENT;
+	}
+
+smb2_query_symlink(const unsigned int xid, struct cifs_tcon *tcon,	print_len = le16_to_cpu(symlink->PrintNameLength);
+	print_offset = le16_to_cpu(symlink->PrintNameOffset);
+
+	if (get_rfc1002_length(err_buf) + 4 <
+	if (get_rfc1002_length(err_buf) + server->vals->header_preamble_size <
+			SMB2_SYMLINK_STRUCT_SIZE + sub_offset + sub_len) {
+		kfree(utf16_path);
+		return -ENOENT;
+	}
+
+	if (get_rfc1002_length(err_buf) + 4 <
+	if (get_rfc1002_length(err_buf) + server->vals->header_preamble_size <
+			SMB2_SYMLINK_STRUCT_SIZE + print_offset + print_len) {
+		kfree(utf16_path);
+		return -ENOENT;
+
+smb2_dir_needs_close(struct cifsFileInfo *cfile)}
+
+static void
+fill_transform_hdr(struct smb2_transform_hdr *tr_hdr, struct smb_rqst *old_rq)
+fill_transform_hdr(struct TCP_Server_Info *server,
+		   struct smb2_transform_hdr *tr_hdr, struct smb_rqst *old_rq)
+{
+	struct smb2_sync_hdr *shdr =
+			(struct smb2_sync_hdr *)old_rq->rq_iov[1].iov_base;
+
+fill_transform_hdr(struct smb2_transform_hdr *tr_hdr, struct smb_rqst *old_rq)	tr_hdr->Flags = cpu_to_le16(0x01);
+	get_random_bytes(&tr_hdr->Nonce, SMB3_AES128CMM_NONCE);
+	memcpy(&tr_hdr->SessionId, &shdr->SessionId, 8);
+	inc_rfc1001_len(tr_hdr, sizeof(struct smb2_transform_hdr) - 4);
+	inc_rfc1001_len(tr_hdr, sizeof(struct smb2_transform_hdr) - server->vals->header_preamble_size);
+	inc_rfc1001_len(tr_hdr, orig_len);
+}
+
+
+crypt_message(struct TCP_Server_Info *server, struct smb_rqst *rqst, int enc){
+	struct smb2_transform_hdr *tr_hdr =
+			(struct smb2_transform_hdr *)rqst->rq_iov[0].iov_base;
+	unsigned int assoc_data_len = sizeof(struct smb2_transform_hdr) - 24;
+	unsigned int assoc_data_len = sizeof(struct smb2_transform_hdr) - 20 - server->vals->header_preamble_size;
+	int rc = 0;
+	struct scatterlist *sg;
+	u8 sign[SMB2_SIGNATURE_SIZE] = {};
+
+smb3_init_transform_rq(struct TCP_Server_Info *server, struct smb_rqst *new_rq,		goto err_free_iov;
+
+	/* fill the 1st iov with a transform header */
+	fill_transform_hdr(tr_hdr, old_rq);
+	fill_transform_hdr(server, tr_hdr, old_rq);
+	new_rq->rq_iov[0].iov_base = tr_hdr;
+	new_rq->rq_iov[0].iov_len = sizeof(struct smb2_transform_hdr);
+
+
+decrypt_raw_data(struct TCP_Server_Info *server, char *buf,	if (rc)
+		return rc;
+
+	memmove(buf + 4, iov[1].iov_base, buf_data_size);
+	memmove(buf + server->vals->header_preamble_size, iov[1].iov_base, buf_data_size);
+	hdr = (struct smb2_hdr *)buf;
+	hdr->smb2_buf_length = cpu_to_be32(buf_data_size + page_data_size);
+	server->total_read = buf_data_size + page_data_size + 4;
+	server->total_read = buf_data_size + page_data_size + server->vals->header_preamble_size;
+
+	return rc;
+}
+
+handle_read_data(struct TCP_Server_Info *server, struct mid_q_entry *mid,		return 0;
+	}
+
+	data_offset = server->ops->read_data_offset(buf) + 4;
+	data_offset = server->ops->read_data_offset(buf) + server->vals->header_preamble_size;
+#ifdef CONFIG_CIFS_SMB_DIRECT
+	use_rdma_mr = rdata->mr;
+#endif
+
+receive_encrypted_read(struct TCP_Server_Info *server, struct mid_q_entry **mid)	unsigned int npages;
+	struct page **pages;
+	unsigned int len;
+	unsigned int buflen = get_rfc1002_length(buf) + 4;
+	unsigned int buflen = get_rfc1002_length(buf) + server->vals->header_preamble_size;
+	int rc;
+	int i = 0;
+
+	len = min_t(unsigned int, buflen, server->vals->read_rsp_size - 4 +
+	len = min_t(unsigned int, buflen, server->vals->read_rsp_size -
+		server->vals->header_preamble_size +
+		sizeof(struct smb2_transform_hdr)) - HEADER_SIZE(server) + 1;
+
+	rc = cifs_read_from_socket(server, buf + HEADER_SIZE(server) - 1, len);
+
+receive_encrypted_read(struct TCP_Server_Info *server, struct mid_q_entry **mid)		return rc;
+	server->total_read += rc;
+
+	len = le32_to_cpu(tr_hdr->OriginalMessageSize) + 4 -
+						server->vals->read_rsp_size;
+	len = le32_to_cpu(tr_hdr->OriginalMessageSize) +
+		server->vals->header_preamble_size -
+		server->vals->read_rsp_size;
+	npages = DIV_ROUND_UP(len, PAGE_SIZE);
+
+	pages = kmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
+
+receive_encrypted_read(struct TCP_Server_Info *server, struct mid_q_entry **mid)	if (rc)
+		goto free_pages;
+
+	rc = decrypt_raw_data(server, buf, server->vals->read_rsp_size - 4,
+	rc = decrypt_raw_data(server, buf, server->vals->read_rsp_size -
+			      server->vals->header_preamble_size,
+			      pages, npages, len);
+	if (rc)
+		goto free_pages;
+
+receive_encrypted_standard(struct TCP_Server_Info *server,	struct mid_q_entry *mid_entry;
+
+	/* switch to large buffer if too big for a small one */
+	if (pdu_length + 4 > MAX_CIFS_SMALL_BUFFER_SIZE) {
+	if (pdu_length + server->vals->header_preamble_size > MAX_CIFS_SMALL_BUFFER_SIZE) {
+		server->large_buf = true;
+		memcpy(server->bigbuf, buf, server->total_read);
+		buf = server->bigbuf;
+
+receive_encrypted_standard(struct TCP_Server_Info *server,
+	/* now read the rest */
+	length = cifs_read_from_socket(server, buf + HEADER_SIZE(server) - 1,
+				pdu_length - HEADER_SIZE(server) + 1 + 4);
+				pdu_length - HEADER_SIZE(server) + 1 +
+				server->vals->header_preamble_size);
+	if (length < 0)
+		return length;
+	server->total_read += length;
+
+	buf_size = pdu_length + 4 - sizeof(struct smb2_transform_hdr);
+	buf_size = pdu_length + server->vals->header_preamble_size - sizeof(struct smb2_transform_hdr);
+	length = decrypt_raw_data(server, buf, buf_size, NULL, 0, 0);
+	if (length)
+		return length;
+
+smb3_receive_transform(struct TCP_Server_Info *server, struct mid_q_entry **mid)	struct smb2_transform_hdr *tr_hdr = (struct smb2_transform_hdr *)buf;
+	unsigned int orig_len = le32_to_cpu(tr_hdr->OriginalMessageSize);
+
+	if (pdu_length + 4 < sizeof(struct smb2_transform_hdr) +
+	if (pdu_length + server->vals->header_preamble_size < sizeof(struct smb2_transform_hdr) +
+						sizeof(struct smb2_sync_hdr)) {
+		cifs_dbg(VFS, "Transform message is too small (%u)\n",
+			 pdu_length);
+
+smb3_receive_transform(struct TCP_Server_Info *server, struct mid_q_entry **mid)		return -ECONNABORTED;
+	}
+
+	if (pdu_length + 4 < orig_len + sizeof(struct smb2_transform_hdr)) {
+	if (pdu_length + server->vals->header_preamble_size < orig_len + sizeof(struct smb2_transform_hdr)) {
+		cifs_dbg(VFS, "Transform message is broken\n");
+		cifs_reconnect(server);
+		wake_up(&server->response_q);
+		return -ECONNABORTED;
+	}
+
+	if (pdu_length + 4 > CIFSMaxBufSize + MAX_HEADER_SIZE(server))
+	if (pdu_length + server->vals->header_preamble_size > CIFSMaxBufSize + MAX_HEADER_SIZE(server))
+		return receive_encrypted_read(server, mid);
+
+	return receive_encrypted_standard(server, mid);
+
+smb3_handle_read_data(struct TCP_Server_Info *server, struct mid_q_entry *mid){
+	char *buf = server->large_buf ? server->bigbuf : server->smallbuf;
+
+	return handle_read_data(server, mid, buf, get_rfc1002_length(buf) + 4,
+	return handle_read_data(server, mid, buf, get_rfc1002_length(buf) +
+				server->vals->header_preamble_size,
+				NULL, 0, 0);
+}
+
+
+struct smb_version_values smb20_values = {	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
+	.unlock_lock_type = SMB2_LOCKFLAG_UNLOCK,
+	.header_size = sizeof(struct smb2_hdr),
+	.header_preamble_size = 4,
+	.max_header_size = MAX_SMB2_HDR_SIZE,
+	.read_rsp_size = sizeof(struct smb2_read_rsp) - 1,
+	.lock_cmd = SMB2_LOCK,
+
+struct smb_version_values smb21_values = {	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
+	.unlock_lock_type = SMB2_LOCKFLAG_UNLOCK,
+	.header_size = sizeof(struct smb2_hdr),
+	.header_preamble_size = 4,
+	.max_header_size = MAX_SMB2_HDR_SIZE,
+	.read_rsp_size = sizeof(struct smb2_read_rsp) - 1,
+	.lock_cmd = SMB2_LOCK,
+
+struct smb_version_values smb3any_values = {	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
+	.unlock_lock_type = SMB2_LOCKFLAG_UNLOCK,
+	.header_size = sizeof(struct smb2_hdr),
+	.header_preamble_size = 4,
+	.max_header_size = MAX_SMB2_HDR_SIZE,
+	.read_rsp_size = sizeof(struct smb2_read_rsp) - 1,
+	.lock_cmd = SMB2_LOCK,
+
+struct smb_version_values smbdefault_values = {	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
+	.unlock_lock_type = SMB2_LOCKFLAG_UNLOCK,
+	.header_size = sizeof(struct smb2_hdr),
+	.header_preamble_size = 4,
+	.max_header_size = MAX_SMB2_HDR_SIZE,
+	.read_rsp_size = sizeof(struct smb2_read_rsp) - 1,
+	.lock_cmd = SMB2_LOCK,
+
+struct smb_version_values smb30_values = {	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
+	.unlock_lock_type = SMB2_LOCKFLAG_UNLOCK,
+	.header_size = sizeof(struct smb2_hdr),
+	.header_preamble_size = 4,
+	.max_header_size = MAX_SMB2_HDR_SIZE,
+	.read_rsp_size = sizeof(struct smb2_read_rsp) - 1,
+	.lock_cmd = SMB2_LOCK,
+
+struct smb_version_values smb302_values = {	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
+	.unlock_lock_type = SMB2_LOCKFLAG_UNLOCK,
+	.header_size = sizeof(struct smb2_hdr),
+	.header_preamble_size = 4,
+	.max_header_size = MAX_SMB2_HDR_SIZE,
+	.read_rsp_size = sizeof(struct smb2_read_rsp) - 1,
+	.lock_cmd = SMB2_LOCK,
+
+struct smb_version_values smb311_values = {	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
+	.unlock_lock_type = SMB2_LOCKFLAG_UNLOCK,
+	.header_size = sizeof(struct smb2_hdr),
+	.header_preamble_size = 4,
+	.max_header_size = MAX_SMB2_HDR_SIZE,
+	.read_rsp_size = sizeof(struct smb2_read_rsp) - 1,
+	.lock_cmd = SMB2_LOCK,
+
+parse_lease_state(struct TCP_Server_Info *server, struct smb2_create_rsp *rsp,	unsigned int remaining;
+	char *name;
+
+	data_offset = (char *)rsp + 4 + le32_to_cpu(rsp->CreateContextsOffset);
+	data_offset = (char *)rsp + server->vals->header_preamble_size + le32_to_cpu(rsp->CreateContextsOffset);
+	remaining = le32_to_cpu(rsp->CreateContextsLength);
+	cc = (struct create_context *)data_offset;
+	while (remaining >= sizeof(struct create_context)) {
+
+static intbuild_qfs_info_req(struct kvec *iov, struct cifs_tcon *tcon, int level,
+		   int outbuf_len, u64 persistent_fid, u64 volatile_fid)
+{
+	struct TCP_Server_Info *server = tcon->ses->server;
+	int rc;
+	struct smb2_query_info_req *req;
+	unsigned int total_len;
+
+build_qfs_info_req(struct kvec *iov, struct cifs_tcon *tcon, int level,	req->InputBufferOffset =
+			cpu_to_le16(sizeof(struct smb2_query_info_req) - 1);
+	req->OutputBufferLength = cpu_to_le32(
+		outbuf_len + sizeof(struct smb2_query_info_rsp) - 1 - 4);
+		outbuf_len + sizeof(struct smb2_query_info_rsp) - 1 - server->vals->header_preamble_size);
+
+	iov->iov_base = (char *)req;
+	iov->iov_len = total_len;
+
+SMB2_QFS_info(const unsigned int xid, struct cifs_tcon *tcon,	int rc = 0;
+	int resp_buftype;
+	struct cifs_ses *ses = tcon->ses;
+	struct TCP_Server_Info *server = ses->server;
+	struct smb2_fs_full_size_info *info = NULL;
+	int flags = 0;
+
+
+SMB2_QFS_info(const unsigned int xid, struct cifs_tcon *tcon,	}
+	rsp = (struct smb2_query_info_rsp *)rsp_iov.iov_base;
+
+	info = (struct smb2_fs_full_size_info *)(4 /* RFC1001 len */ +
+	info = (struct smb2_fs_full_size_info *)(server->vals->header_preamble_size +
+		le16_to_cpu(rsp->OutputBufferOffset) + (char *)&rsp->hdr);
+	rc = validate_buf(le16_to_cpu(rsp->OutputBufferOffset),
+			  le32_to_cpu(rsp->OutputBufferLength), &rsp->hdr,
+
+SMB2_QFS_attr(const unsigned int xid, struct cifs_tcon *tcon,	int rc = 0;
+	int resp_buftype, max_len, min_len;
+	struct cifs_ses *ses = tcon->ses;
+	struct TCP_Server_Info *server = ses->server;
+	unsigned int rsp_len, offset;
+	int flags = 0;
+
+
+SMB2_QFS_attr(const unsigned int xid, struct cifs_tcon *tcon,		goto qfsattr_exit;
+
+	if (level == FS_ATTRIBUTE_INFORMATION)
+		memcpy(&tcon->fsAttrInfo, 4 /* RFC1001 len */ + offset
+		memcpy(&tcon->fsAttrInfo, server->vals->header_preamble_size + offset
+			+ (char *)&rsp->hdr, min_t(unsigned int,
+			rsp_len, max_len));
+	else if (level == FS_DEVICE_INFORMATION)
+		memcpy(&tcon->fsDevInfo, 4 /* RFC1001 len */ + offset
+		memcpy(&tcon->fsDevInfo, server->vals->header_preamble_size + offset
+			+ (char *)&rsp->hdr, sizeof(FILE_SYSTEM_DEVICE_INFO));
+	else if (level == FS_SECTOR_SIZE_INFORMATION) {
+		struct smb3_fs_ss_info *ss_info = (struct smb3_fs_ss_info *)
+			(4 /* RFC1001 len */ + offset + (char *)&rsp->hdr);
+			(server->vals->header_preamble_size + offset + (char *)&rsp->hdr);
+		tcon->ss_flags = le32_to_cpu(ss_info->Flags);
+		tcon->perf_sector_size =
+			le32_to_cpu(ss_info->PhysicalBytesPerSectorForPerf);
+
+cifs_send_recv(const unsigned int xid, struct cifs_ses *ses,
+	buf = (char *)midQ->resp_buf;
+	resp_iov->iov_base = buf;
+	resp_iov->iov_len = get_rfc1002_length(buf) + 4;
+	resp_iov->iov_len = get_rfc1002_length(buf) +
+		ses->server->vals->header_preamble_size;
+	if (midQ->large_buf)
+		*resp_buf_type = CIFS_LARGE_BUFFER;
+	else
+
+

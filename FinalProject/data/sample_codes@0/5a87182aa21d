@@ -1,0 +1,111 @@
+#include <linux/async.h>
+#include <linux/suspend.h>
+#include <trace/events/power.h>
+#include <linux/cpufreq.h>
+#include <linux/cpuidle.h>
+#include "../base.h"
+#include "power.h"
+
+static void dpm_resume_noirq(pm_message_t state)	dpm_show_time(starttime, state, "noirq");
+	resume_device_irqs();
+	cpuidle_resume();
+	cpufreq_resume();
+}
+
+/**
+
+static int dpm_suspend_noirq(pm_message_t state)	ktime_t starttime = ktime_get();
+	int error = 0;
+
+	cpufreq_suspend();
+	cpuidle_pause();
+	suspend_device_irqs();
+	mutex_lock(&dpm_list_mtx);
+
+#include <linux/module.h>
+#include <linux/mutex.h>
+#include <linux/slab.h>
+#include <linux/suspend.h>
+#include <linux/syscore_ops.h>
+#include <linux/tick.h>
+#include <trace/events/power.h>
+
+static LIST_HEAD(cpufreq_policy_list);static DEFINE_PER_CPU(char[CPUFREQ_NAME_LEN], cpufreq_cpu_governor);
+#endif
+
+/* Flag to suspend/resume CPUFreq governors */
+static bool cpufreq_suspended;
+
+static inline bool has_target(void)
+{
+	return cpufreq_driver->target_index || cpufreq_driver->target;
+
+static struct subsys_interface cpufreq_interface = {	.remove_dev	= cpufreq_remove_dev,
+};
+
+void cpufreq_suspend(void)
+{
+	struct cpufreq_policy *policy;
+
+	if (!has_target())
+		return;
+
+	pr_debug("%s: Suspending Governors\n", __func__);
+
+	list_for_each_entry(policy, &cpufreq_policy_list, policy_list)
+		if (__cpufreq_governor(policy, CPUFREQ_GOV_STOP))
+			pr_err("%s: Failed to stop governor for policy: %p\n",
+				__func__, policy);
+
+	cpufreq_suspended = true;
+}
+
+void cpufreq_resume(void)
+{
+	struct cpufreq_policy *policy;
+
+	if (!has_target())
+		return;
+
+	pr_debug("%s: Resuming Governors\n", __func__);
+
+	cpufreq_suspended = false;
+
+	list_for_each_entry(policy, &cpufreq_policy_list, policy_list)
+		if (__cpufreq_governor(policy, CPUFREQ_GOV_START)
+		    || __cpufreq_governor(policy, CPUFREQ_GOV_LIMITS))
+			pr_err("%s: Failed to start governor for policy: %p\n",
+				__func__, policy);
+}
+
+/**
+ * cpufreq_bp_suspend - Prepare the boot CPU for system suspend.
+ *
+
+static int __cpufreq_governor(struct cpufreq_policy *policy,	struct cpufreq_governor *gov = NULL;
+#endif
+
+	/* Don't start any governor operations if we are entering suspend */
+	if (cpufreq_suspended)
+		return 0;
+
+	if (policy->governor->max_transition_latency &&
+	    policy->cpuinfo.transition_latency >
+	    policy->governor->max_transition_latency) {
+
+cpufreq_verify_within_cpu_limits(struct cpufreq_policy *policy)			policy->cpuinfo.max_freq);
+}
+
+#ifdef CONFIG_CPU_FREQ
+void cpufreq_suspend(void);
+void cpufreq_resume(void);
+#else
+static inline void cpufreq_suspend(void) {}
+static inline void cpufreq_resume(void) {}
+#endif
+
+/*********************************************************************
+ *                     CPUFREQ NOTIFIER INTERFACE                    *
+ *********************************************************************/
+
+

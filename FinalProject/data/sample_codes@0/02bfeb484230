@@ -1,0 +1,155 @@
+struct pci_bus *acpi_pci_root_create(struct acpi_pci_root *root,	struct acpi_device *device = root->device;
+	int node = acpi_get_node(device->handle);
+	struct pci_bus *bus;
+	struct pci_host_bridge *host_bridge;
+
+	info->root = root;
+	info->bridge = device;
+
+struct pci_bus *acpi_pci_root_create(struct acpi_pci_root *root,	if (!bus)
+		goto out_release_info;
+
+	host_bridge = to_pci_host_bridge(bus->bridge);
+	if (!(root->osc_control_set & OSC_PCI_EXPRESS_NATIVE_HP_CONTROL))
+		host_bridge->native_hotplug = 0;
+	if (!(root->osc_control_set & OSC_PCI_EXPRESS_AER_CONTROL))
+		host_bridge->native_aer = 0;
+	if (!(root->osc_control_set & OSC_PCI_EXPRESS_PME_CONTROL))
+		host_bridge->native_pme = 0;
+
+	pci_scan_child_bus(bus);
+	pci_set_host_bridge_release(to_pci_host_bridge(bus->bridge),
+				    acpi_pci_root_release_info, info);
+	pci_set_host_bridge_release(host_bridge, acpi_pci_root_release_info,
+				    info);
+	if (node != NUMA_NO_NODE)
+		dev_printk(KERN_DEBUG, &bus->dev, "on NUMA node %d\n", node);
+	return bus;
+
+obj-$(CONFIG_PCIEASPM)		+= aspm.o
+
+pcieportdrv-y			:= portdrv_core.o portdrv_pci.o
+pcieportdrv-$(CONFIG_ACPI)	+= portdrv_acpi.o
+
+obj-$(CONFIG_PCIEPORTBUS)	+= pcieportdrv.o
+
+
+static inline bool pcie_pme_no_msi(void) { return false; }static inline void pcie_pme_interrupt_enable(struct pci_dev *dev, bool en) {}
+#endif /* !CONFIG_PCIE_PME */
+
+#ifdef CONFIG_ACPI
+void pcie_port_acpi_setup(struct pci_dev *port, int *mask);
+
+static inline void pcie_port_platform_notify(struct pci_dev *port, int *mask)
+{
+	pcie_port_acpi_setup(port, mask);
+}
+#else /* !CONFIG_ACPI */
+static inline void pcie_port_platform_notify(struct pci_dev *port, int *mask){}
+#endif /* !CONFIG_ACPI */
+
+#endif /* _PORTDRV_H_ */
+
+static int pcie_init_service_irqs(struct pci_dev *dev, int *irqs, int mask) */
+static int get_port_device_capability(struct pci_dev *dev)
+{
+	struct pci_host_bridge *host = pci_find_host_bridge(dev->bus);
+	bool native;
+	int services = 0;
+	int cap_mask = 0;
+
+	cap_mask = PCIE_PORT_SERVICE_PME | PCIE_PORT_SERVICE_HP;
+	if (pci_aer_available())
+		cap_mask |= PCIE_PORT_SERVICE_AER | PCIE_PORT_SERVICE_DPC;
+
+	if (pcie_ports_auto)
+		pcie_port_platform_notify(dev, &cap_mask);
+	/*
+	 * If the user specified "pcie_ports=native", use the PCIe services
+	 * regardless of whether the platform has given us permission.  On
+	 * ACPI systems, this means we ignore _OSC.
+	 */
+	native = !pcie_ports_auto;
+
+	/* Hot-Plug Capable */
+	if ((cap_mask & PCIE_PORT_SERVICE_HP) && dev->is_hotplug_bridge) {
+	if (dev->is_hotplug_bridge && (native || host->native_hotplug)) {
+		services |= PCIE_PORT_SERVICE_HP;
+
+		/*
+		 * Disable hot-plug interrupts in case they have been enabled
+		 * by the BIOS and the hot-plug service driver is not loaded.
+
+static int get_port_device_capability(struct pci_dev *dev)		pcie_capability_clear_word(dev, PCI_EXP_SLTCTL,
+			  PCI_EXP_SLTCTL_CCIE | PCI_EXP_SLTCTL_HPIE);
+	}
+	/* AER capable */
+	if ((cap_mask & PCIE_PORT_SERVICE_AER)
+	    && pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ERR)) {
+
+	if (pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ERR) &&
+	    pci_aer_available() && (native || host->native_aer)) {
+		services |= PCIE_PORT_SERVICE_AER;
+
+		/*
+		 * Disable AER on this port in case it's been enabled by the
+		 * BIOS (the AER service driver will enable it when necessary).
+		 */
+		pci_disable_pcie_error_reporting(dev);
+	}
+	/* Root ports are capable of generating PME too */
+	if ((cap_mask & PCIE_PORT_SERVICE_PME)
+	    && pci_pcie_type(dev) == PCI_EXP_TYPE_ROOT_PORT) {
+
+	/*
+	 * Root ports are capable of generating PME too.  Root Complex
+	 * Event Collectors can also generate PMEs, but we don't handle
+	 * those yet.
+	 */
+	if (pci_pcie_type(dev) == PCI_EXP_TYPE_ROOT_PORT &&
+	    (native || host->native_pme)) {
+		services |= PCIE_PORT_SERVICE_PME;
+
+		/*
+		 * Disable PME interrupt on this port in case it's been enabled
+		 * by the BIOS (the PME service driver will enable it when
+
+static int get_port_device_capability(struct pci_dev *dev)		 */
+		pcie_pme_interrupt_enable(dev, false);
+	}
+	if (pci_find_ext_capability(dev, PCI_EXT_CAP_ID_DPC))
+
+	if (pci_find_ext_capability(dev, PCI_EXT_CAP_ID_DPC) &&
+	    pci_aer_available())
+		services |= PCIE_PORT_SERVICE_DPC;
+
+	return services;
+
+struct pci_host_bridge *pci_alloc_host_bridge(size_t priv)	INIT_LIST_HEAD(&bridge->windows);
+	bridge->dev.release = pci_release_host_bridge_dev;
+
+	/*
+	 * We assume we can manage these PCIe features.  Some systems may
+	 * reserve these for use by the platform itself, e.g., an ACPI BIOS
+	 * may implement its own AER handling and use _OSC to prevent the
+	 * OS from interfering.
+	 */
+	bridge->native_aer = 1;
+	bridge->native_hotplug = 1;
+	bridge->native_pme = 1;
+
+	return bridge;
+}
+EXPORT_SYMBOL(pci_alloc_host_bridge);
+
+struct pci_host_bridge {	struct msi_controller *msi;
+	unsigned int	ignore_reset_delay:1;	/* For entire hierarchy */
+	unsigned int	no_ext_tags:1;		/* No Extended Tags */
+	unsigned int	native_aer:1;		/* OS may use PCIe AER */
+	unsigned int	native_hotplug:1;	/* OS may use PCIe hotplug */
+	unsigned int	native_pme:1;		/* OS may use PCIe PME */
+	/* Resource alignment requirements */
+	resource_size_t (*align_resource)(struct pci_dev *dev,
+			const struct resource *res,
+
+

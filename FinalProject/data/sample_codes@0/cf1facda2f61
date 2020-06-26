@@ -1,0 +1,166 @@
+struct tcf_walker {int register_tcf_proto_ops(struct tcf_proto_ops *ops);
+int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+
+void tcf_destroy_chain(struct tcf_proto __rcu **fl);
+
+static inline unsigned long
+__cls_set_class(unsigned long *clp, unsigned long cl)
+{
+
+struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,				const struct Qdisc_ops *ops, u32 parentid);
+void __qdisc_calculate_pkt_len(struct sk_buff *skb,
+			       const struct qdisc_size_table *stab);
+bool tcf_proto_destroy(struct tcf_proto *tp, bool force);
+void tcf_destroy_chain(struct tcf_proto __rcu **fl);
+int skb_do_redirect(struct sk_buff *);
+
+static inline void skb_reset_tc(struct sk_buff *skb)
+
+static inline u32 tcf_auto_prio(struct tcf_proto *tp)	return first;
+}
+
+static bool tcf_proto_destroy(struct tcf_proto *tp, bool force)
+{
+	if (tp->ops->destroy(tp, force)) {
+		module_put(tp->ops->owner);
+		kfree_rcu(tp, rcu);
+		return true;
+	}
+	return false;
+}
+
+void tcf_destroy_chain(struct tcf_proto __rcu **fl)
+{
+	struct tcf_proto *tp;
+
+	while ((tp = rtnl_dereference(*fl)) != NULL) {
+		RCU_INIT_POINTER(*fl, tp->next);
+		tcf_proto_destroy(tp, true);
+	}
+}
+EXPORT_SYMBOL(tcf_destroy_chain);
+
+/* Add/change/delete/get a filter node */
+
+static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+
+int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,}
+EXPORT_SYMBOL(tc_classify);
+
+bool tcf_proto_destroy(struct tcf_proto *tp, bool force)
+{
+	if (tp->ops->destroy(tp, force)) {
+		module_put(tp->ops->owner);
+		kfree_rcu(tp, rcu);
+		return true;
+	}
+
+	return false;
+}
+
+void tcf_destroy_chain(struct tcf_proto __rcu **fl)
+{
+	struct tcf_proto *tp;
+
+	while ((tp = rtnl_dereference(*fl)) != NULL) {
+		RCU_INIT_POINTER(*fl, tp->next);
+		tcf_proto_destroy(tp, true);
+	}
+}
+EXPORT_SYMBOL(tcf_destroy_chain);
+
+#ifdef CONFIG_PROC_FS
+static int psched_show(struct seq_file *seq, void *v)
+{
+
+#include <linux/file.h>		/* for fput */
+#include <net/netlink.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+
+/*
+ * The ATM queuing discipline provides a framework for invoking classifiers
+
+#include <linux/skbuff.h>
+#include <net/netlink.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+
+
+/*	Class-Based Queueing (CBQ) algorithm.
+
+#include <linux/skbuff.h>
+#include <linux/vmalloc.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+#include <net/inet_ecn.h>
+#include <net/red.h>
+#include <net/flow_dissector.h>
+
+#include <linux/rtnetlink.h>
+#include <linux/bitops.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+#include <net/dsfield.h>
+#include <net/inet_ecn.h>
+#include <asm/byteorder.h>
+
+#include <linux/vmalloc.h>
+#include <net/netlink.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+#include <net/codel.h>
+#include <net/codel_impl.h>
+#include <net/codel_qdisc.h>
+
+#include <net/netlink.h>
+#include <net/sch_generic.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+
+/* HTB algorithm.
+    Author: devik@cdi.cz
+
+
+#include <net/netlink.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+
+static struct Qdisc *ingress_leaf(struct Qdisc *sch, unsigned long arg)
+{
+
+#include <linux/skbuff.h>
+#include <net/netlink.h>
+#include <net/pkt_sched.h>
+
+#include <net/pkt_cls.h>
+
+struct multiq_sched_data {
+	u16 bands;
+
+#include <linux/skbuff.h>
+#include <net/netlink.h>
+#include <net/pkt_sched.h>
+
+#include <net/pkt_cls.h>
+
+struct prio_sched_data {
+	int bands;
+
+#include <linux/jhash.h>
+#include <net/ip.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+#include <net/inet_ecn.h>
+
+/*
+
+#include <linux/vmalloc.h>
+#include <net/netlink.h>
+#include <net/pkt_sched.h>
+#include <net/pkt_cls.h>
+#include <net/red.h>
+
+
+
+

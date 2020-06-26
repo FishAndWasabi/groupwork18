@@ -1,0 +1,64 @@
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+
+	pca9505: pca9505@20 {
+		compatible = "nxp,pca9505";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x20>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	pcf8574: pcf8574@20 {
+		compatible = "nxp,pcf8574a";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x27>;
+	};
+};
+
+&nand {
+	status = "ok";
+	nandcs@0 {
+
+
+		#include "stingray-pinctrl.dtsi"
+
+		i2c0: i2c@000b0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x000b0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 177 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
+			status = "disabled";
+		};
+
+		gpio_hsls: gpio@000d0000 {
+			compatible = "brcm,iproc-gpio";
+			reg = <0x000d0000 0x864>;
+
+					<&pinmux 151 91 4>;
+		};
+
+		i2c1: i2c@000e0000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x000e0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 178 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
+			status = "disabled";
+		};
+
+		uart0: uart@00100000 {
+			device_type = "serial";
+			compatible = "snps,dw-apb-uart";
+
+

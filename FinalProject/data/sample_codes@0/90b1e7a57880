@@ -1,0 +1,172 @@
+static void dnotify_recalc_inode_mask(struct fsnotify_mark *fsn_mark)	new_mask = 0;
+	for (dn = dn_mark->dn; dn != NULL; dn = dn->dn_next)
+		new_mask |= (dn->dn_mask & ~FS_DN_MULTISHOT);
+	fsn_mark->mask = new_mask;
+	fsnotify_set_mark_mask_locked(fsn_mark, new_mask);
+
+	if (old_mask == new_mask)
+		return;
+
+static __u32 fanotify_mark_remove_from_mask(struct fsnotify_mark *fsn_mark, __u3
+	spin_lock(&fsn_mark->lock);
+	oldmask = fsn_mark->mask;
+	fsn_mark->mask = oldmask & ~mask;
+	fsnotify_set_mark_mask_locked(fsn_mark, (oldmask & ~mask));
+	spin_unlock(&fsn_mark->lock);
+
+	if (!(oldmask & ~mask))
+
+static __u32 fanotify_mark_add_to_mask(struct fsnotify_mark *fsn_mark, __u32 mas
+	spin_lock(&fsn_mark->lock);
+	oldmask = fsn_mark->mask;
+	fsn_mark->mask = oldmask | mask;
+	fsnotify_set_mark_mask_locked(fsn_mark, (oldmask | mask));
+	spin_unlock(&fsn_mark->lock);
+
+	return mask & ~oldmask;
+
+extern __u32 fsnotify_vfsmount_mask;/* destroy all events sitting in this groups notification queue */
+extern void fsnotify_flush_notify(struct fsnotify_group *group);
+
+extern void fsnotify_set_inode_mark_mask_locked(struct fsnotify_mark *fsn_mark,
+						__u32 mask);
+/* add a mark to an inode */
+extern int fsnotify_add_inode_mark(struct fsnotify_mark *mark,
+				   struct fsnotify_group *group, struct inode *inode,
+
+struct fsnotify_mark *fsnotify_find_inode_mark(struct fsnotify_group *group,}
+
+/*
+ * Attach an initialized mark mark to a given group and inode.
+ * If we are setting a mark mask on an inode mark we should pin the inode
+ * in memory.
+ */
+void fsnotify_set_inode_mark_mask_locked(struct fsnotify_mark *mark,
+					 __u32 mask)
+{
+	struct inode *inode;
+
+	assert_spin_locked(&mark->lock);
+
+	if (mask &&
+	    mark->i.inode &&
+	    !(mark->flags & FSNOTIFY_MARK_FLAG_OBJECT_PINNED)) {
+		mark->flags |= FSNOTIFY_MARK_FLAG_OBJECT_PINNED;
+		inode = igrab(mark->i.inode);
+		/*
+		 * we shouldn't be able to get here if the inode wasn't
+		 * already safely held in memory.  But bug in case it
+		 * ever is wrong.
+		 */
+		BUG_ON(!inode);
+	}
+}
+
+/*
+ * Attach an initialized mark to a given group and inode.
+ * These marks may be used for the fsnotify backend to determine which
+ * event types should be delivered to which group and for which inodes.
+ */
+
+int fsnotify_add_inode_mark(struct fsnotify_mark *mark,	struct fsnotify_mark *lmark = NULL;
+	int ret = 0;
+
+	inode = igrab(inode);
+	if (unlikely(!inode))
+		return -EINVAL;
+
+	mark->flags = FSNOTIFY_MARK_FLAG_INODE;
+
+	assert_spin_locked(&mark->lock);
+
+int fsnotify_add_inode_mark(struct fsnotify_mark *mark,
+	spin_unlock(&inode->i_lock);
+
+	if (lmark) {
+	if (lmark)
+		ret = -EEXIST;
+		iput(inode);
+	}
+
+	return ret;
+}
+
+static int inotify_update_existing_watch(struct fsnotify_group *group,	spin_lock(&fsn_mark->lock);
+
+	old_mask = fsn_mark->mask;
+	if (add) {
+		fsn_mark->mask |= mask;
+		new_mask = fsn_mark->mask;
+	} else {
+		fsn_mark->mask = mask;
+		new_mask = fsn_mark->mask;
+	}
+	if (add)
+		fsnotify_set_mark_mask_locked(fsn_mark, (fsn_mark->mask | mask));
+	else
+		fsnotify_set_mark_mask_locked(fsn_mark, mask);
+	new_mask = fsn_mark->mask;
+
+	spin_unlock(&fsn_mark->lock);
+
+
+void fsnotify_destroy_mark(struct fsnotify_mark *mark)	 * is just a lazy update (and could be a perf win...)
+	 */
+
+	if (inode)
+	if (inode && (mark->flags & FSNOTIFY_MARK_FLAG_OBJECT_PINNED))
+		iput(inode);
+
+	/*
+
+void fsnotify_destroy_mark(struct fsnotify_mark *mark)		fsnotify_final_destroy_group(group);
+}
+
+void fsnotify_set_mark_mask_locked(struct fsnotify_mark *mark, __u32 mask)
+{
+	assert_spin_locked(&mark->lock);
+
+	mark->mask = mask;
+
+	if (mark->flags & FSNOTIFY_MARK_FLAG_INODE)
+		fsnotify_set_inode_mark_mask_locked(mark, mask);
+}
+
+
+/*
+ * Attach an initialized mark to a given group and fs object.
+ * These marks may be used for the fsnotify backend to determine which
+
+int fsnotify_add_mark(struct fsnotify_mark *mark,	}
+
+	spin_unlock(&group->mark_lock);
+
+	/* this will pin the object if appropriate */
+	fsnotify_set_mark_mask_locked(mark, mark->mask);
+
+	spin_unlock(&mark->lock);
+
+	if (inode)
+
+struct fsnotify_mark {		struct fsnotify_vfsmount_mark m;
+	};
+	struct list_head free_g_list;	/* tmp list used when freeing this mark */
+#define FSNOTIFY_MARK_FLAG_INODE	0x01
+#define FSNOTIFY_MARK_FLAG_VFSMOUNT	0x02
+#define FSNOTIFY_MARK_FLAG_INODE		0x01
+#define FSNOTIFY_MARK_FLAG_VFSMOUNT		0x02
+#define FSNOTIFY_MARK_FLAG_OBJECT_PINNED	0x04
+	unsigned int flags;		/* vfsmount or inode mark? */
+	void (*free_mark)(struct fsnotify_mark *mark); /* called on final put+free */
+};
+
+extern struct fsnotify_mark *fsnotify_find_inode_mark(struct fsnotify_group *groextern struct fsnotify_mark *fsnotify_find_vfsmount_mark(struct fsnotify_group *group, struct vfsmount *mnt);
+/* copy the values from old into new */
+extern void fsnotify_duplicate_mark(struct fsnotify_mark *new, struct fsnotify_mark *old);
+/* set the mask of a mark (might pin the object into memory */
+extern void fsnotify_set_mark_mask_locked(struct fsnotify_mark *mark, __u32 mask);
+/* attach the mark to both the group and the inode */
+extern int fsnotify_add_mark(struct fsnotify_mark *mark, struct fsnotify_group *group,
+			     struct inode *inode, struct vfsmount *mnt, int allow_dups);
+
+

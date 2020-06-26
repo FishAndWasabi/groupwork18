@@ -1,0 +1,201 @@
+static unsigned hub_is_wusb(struct usb_hub *hub)#define HUB_LONG_RESET_TIME	200
+#define HUB_RESET_TIMEOUT	800
+
+/*
+ * "New scheme" enumeration causes an extra state transition to be
+ * exposed to an xhci host and causes USB3 devices to receive control
+ * commands in the default state.  This has been seen to cause
+ * enumeration failures, so disable this enumeration scheme for USB3
+ * devices.
+ */
+static bool use_new_scheme(struct usb_device *udev, int retry)
+{
+	if (udev->speed == USB_SPEED_SUPER)
+		return false;
+
+	return USE_NEW_SCHEME(retry);
+}
+
+static int hub_port_reset(struct usb_hub *hub, int port1,
+			struct usb_device *udev, unsigned int delay, bool warm);
+
+
+static void hub_set_initial_usb2_lpm_policy(struct usb_device *udev)	}
+}
+
+static int hub_enable_device(struct usb_device *udev)
+{
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
+
+	if (!hcd->driver->enable_device)
+		return 0;
+	if (udev->state == USB_STATE_ADDRESS)
+		return 0;
+	if (udev->state != USB_STATE_DEFAULT)
+		return -EINVAL;
+
+	return hcd->driver->enable_device(hcd, udev);
+}
+
+/* Reset device, (re)assign address, get device descriptor.
+ * Device connection must be stable, no more debouncing needed.
+ * Returns device in USB_STATE_ADDRESS, except on error.
+
+hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,	 * this area, and this is how Linux has done it for ages.
+	 * Change it cautiously.
+	 *
+	 * NOTE:  If USE_NEW_SCHEME() is true we will start by issuing
+	 * NOTE:  If use_new_scheme() is true we will start by issuing
+	 * a 64-byte GET_DESCRIPTOR request.  This is what Windows does,
+	 * so it may help with some non-standards-compliant devices.
+	 * Otherwise we start with SET_ADDRESS and then try to read the
+
+hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,	 * value.
+	 */
+	for (i = 0; i < GET_DESCRIPTOR_TRIES; (++i, msleep(100))) {
+		if (USE_NEW_SCHEME(retry_counter) && !(hcd->driver->flags & HCD_USB3)) {
+		bool did_new_scheme = false;
+
+		if (use_new_scheme(udev, retry_counter)) {
+			struct usb_device_descriptor *buf;
+			int r = 0;
+
+			did_new_scheme = true;
+			retval = hub_enable_device(udev);
+			if (retval < 0)
+				goto fail;
+
+#define GET_DESCRIPTOR_BUFSIZE	64
+			buf = kmalloc(GET_DESCRIPTOR_BUFSIZE, GFP_NOIO);
+			if (!buf) {
+
+hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,			 *  - read ep0 maxpacket even for high and low speed,
+			 */
+			msleep(10);
+			if (USE_NEW_SCHEME(retry_counter) && !(hcd->driver->flags & HCD_USB3))
+			/* use_new_scheme() checks the speed which may have
+			 * changed since the initial look so we cache the result
+			 * in did_new_scheme
+			 */
+			if (did_new_scheme)
+				break;
+		}
+
+
+static const struct hc_driver xhci_pci_hc_driver = {	.check_bandwidth =	xhci_check_bandwidth,
+	.reset_bandwidth =	xhci_reset_bandwidth,
+	.address_device =	xhci_address_device,
+	.enable_device =	xhci_enable_device,
+	.update_hub_device =	xhci_update_hub_device,
+	.reset_device =		xhci_discover_or_reset_device,
+
+
+static const struct hc_driver xhci_plat_xhci_driver = {	.check_bandwidth =	xhci_check_bandwidth,
+	.reset_bandwidth =	xhci_reset_bandwidth,
+	.address_device =	xhci_address_device,
+	.enable_device =	xhci_enable_device,
+	.update_hub_device =	xhci_update_hub_device,
+	.reset_device =		xhci_discover_or_reset_device,
+
+
+int xhci_queue_slot_control(struct xhci_hcd *xhci, u32 trb_type, u32 slot_id)
+/* Queue an address device command TRB */
+int xhci_queue_address_device(struct xhci_hcd *xhci, dma_addr_t in_ctx_ptr,
+		u32 slot_id)
+			      u32 slot_id, enum xhci_setup_dev setup)
+{
+	return queue_command(xhci, lower_32_bits(in_ctx_ptr),
+			upper_32_bits(in_ctx_ptr), 0,
+			TRB_TYPE(TRB_ADDR_DEV) | SLOT_ID_FOR_TRB(slot_id),
+			false);
+			TRB_TYPE(TRB_ADDR_DEV) | SLOT_ID_FOR_TRB(slot_id)
+			| (setup == SETUP_CONTEXT_ONLY ? TRB_BSR : 0), false);
+}
+
+int xhci_queue_vendor_command(struct xhci_hcd *xhci,
+
+int xhci_alloc_dev(struct usb_hcd *hcd, struct usb_device *udev)}
+
+/*
+ * Issue an Address Device command (which will issue a SetAddress request to
+ * the device).
+ * Issue an Address Device command and optionally send a corresponding
+ * SetAddress request to the device.
+ * We should be protected by the usb_address0_mutex in khubd's hub_port_init, so
+ * we should only issue and wait on one address command at the same time.
+ */
+int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev)
+static int xhci_setup_device(struct usb_hcd *hcd, struct usb_device *udev,
+			     enum xhci_setup_dev setup)
+{
+	unsigned long flags;
+	int timeleft;
+
+int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev)	spin_lock_irqsave(&xhci->lock, flags);
+	cmd_trb = xhci_find_next_enqueue(xhci->cmd_ring);
+	ret = xhci_queue_address_device(xhci, virt_dev->in_ctx->dma,
+					udev->slot_id);
+					udev->slot_id, setup);
+	if (ret) {
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		xhci_dbg_trace(xhci, trace_xhci_dbg_address,
+
+int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev)	return 0;
+}
+
+int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev)
+{
+	return xhci_setup_device(hcd, udev, SETUP_CONTEXT_ADDRESS);
+}
+
+int xhci_enable_device(struct usb_hcd *hcd, struct usb_device *udev)
+{
+	return xhci_setup_device(hcd, udev, SETUP_CONTEXT_ONLY);
+}
+
+/*
+ * Transfer the port index into real index in the HW port status
+ * registers. Caculate offset between the port's PORTSC register
+
+struct xhci_event_cmd {};
+
+/* flags bitmasks */
+
+/* Address device - disable SetAddress */
+#define TRB_BSR		(1<<9)
+enum xhci_setup_dev {
+	SETUP_CONTEXT_ONLY,
+	SETUP_CONTEXT_ADDRESS,
+};
+
+/* bits 16:23 are the virtual function ID */
+/* bits 24:31 are the slot ID */
+#define TRB_TO_SLOT_ID(p)	(((p) & (0xff<<24)) >> 24)
+
+int xhci_free_streams(struct usb_hcd *hcd, struct usb_device *udev,		struct usb_host_endpoint **eps, unsigned int num_eps,
+		gfp_t mem_flags);
+int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev);
+int xhci_enable_device(struct usb_hcd *hcd, struct usb_device *udev);
+int xhci_update_device(struct usb_hcd *hcd, struct usb_device *udev);
+int xhci_set_usb2_hardware_lpm(struct usb_hcd *hcd,
+				struct usb_device *udev, int enable);
+
+int xhci_is_vendor_info_code(struct xhci_hcd *xhci, unsigned int trb_comp_code);void xhci_ring_cmd_db(struct xhci_hcd *xhci);
+int xhci_queue_slot_control(struct xhci_hcd *xhci, u32 trb_type, u32 slot_id);
+int xhci_queue_address_device(struct xhci_hcd *xhci, dma_addr_t in_ctx_ptr,
+		u32 slot_id);
+		u32 slot_id, enum xhci_setup_dev);
+int xhci_queue_vendor_command(struct xhci_hcd *xhci,
+		u32 field1, u32 field2, u32 field3, u32 field4);
+int xhci_queue_stop_endpoint(struct xhci_hcd *xhci, int slot_id,
+
+struct hc_driver {	void	(*reset_bandwidth)(struct usb_hcd *, struct usb_device *);
+		/* Returns the hardware-chosen device address */
+	int	(*address_device)(struct usb_hcd *, struct usb_device *udev);
+		/* prepares the hardware to send commands to the device */
+	int	(*enable_device)(struct usb_hcd *, struct usb_device *udev);
+		/* Notifies the HCD after a hub descriptor is fetched.
+		 * Will block.
+		 */
+
+

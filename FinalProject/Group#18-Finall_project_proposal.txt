@@ -1,0 +1,40 @@
+1. Data
+
+1.1 Function level
+1.1.1 The indicator of code complexity
+	1) Cyclomatic complexity
+	2) Number of functions
+	3) Length of code
+
+1.2 Commit level
+1.2.1 The indicators reflecting whether the bug is easy to be found
+	1) The time from the developer's commit to the "First Find Bug"
+	commit which pointed to it.
+
+1.2.2 The indicators reflecting whether the bug is easy to be fixed
+	1) The fix distances 
+
+1.3 Developers level
+1.3.1 The indicators of developers' experience
+	1) The numbers of developers' commits
+	2) Developer's contribution time in Linux kernel
+
+2. Hypothesis:
+
+2.1 The more complex the code is, the harder it is to discover its bug(s).
+Data 1.2.1: The indicators reflecting whether the bug is easy to be found
+Data 1.1.1: The indicator of code complexity
+
+2.2 The more complex the code is, the harder it is to fix its bug(s).
+Data 1.2.2: The indicators reflecting whether the bug is easy to be fixed
+Data 1.1.1: The indicator of code complexity
+
+2.3 The bugs in the code from experienced developers are hard to discover.
+Data 1.2.1: The indicators reflecting whether the bug is easy to be found
+Data 1.1.1: The indicator of code complexity
+Data 1.3.1: The indicators of developers' experience
+
+2.4 The bugs in the code from experienced developers are easy to fix.
+Data 1.2.2:  The indicators reflecting whether the bug is easy to be fixed
+Data 1.1.1: The indicator of code complexity
+Data 1.3.1: The indicators of developers' experience

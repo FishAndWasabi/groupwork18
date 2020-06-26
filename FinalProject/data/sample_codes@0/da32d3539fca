@@ -1,0 +1,33 @@
+config COMMON_CLK_STM32MP157	---help---
+	  Support for stm32mp157 SoC family clocks
+
+config COMMON_CLK_STM32F
+	bool "Clock driver for stm32f4 and stm32f7 SoC families"
+	depends on MACH_STM32F429 || MACH_STM32F469 || MACH_STM32F746
+	help
+	---help---
+	  Support for stm32f4 and stm32f7 SoC families clocks
+
+config COMMON_CLK_STM32H7
+	bool "Clock driver for stm32h7 SoC family"
+	depends on MACH_STM32H743
+	help
+	---help---
+	  Support for stm32h7 SoC family clocks
+
+source "drivers/clk/bcm/Kconfig"
+source "drivers/clk/hisilicon/Kconfig"
+source "drivers/clk/imgtec/Kconfig"
+
+obj-$(CONFIG_COMMON_CLK_SCPI)           += clk-scpi.oobj-$(CONFIG_COMMON_CLK_SI5351)		+= clk-si5351.o
+obj-$(CONFIG_COMMON_CLK_SI514)		+= clk-si514.o
+obj-$(CONFIG_COMMON_CLK_SI570)		+= clk-si570.o
+obj-$(CONFIG_ARCH_STM32)		+= clk-stm32f4.o
+obj-$(CONFIG_ARCH_STM32)		+= clk-stm32h7.o
+obj-$(CONFIG_COMMON_CLK_STM32F)		+= clk-stm32f4.o
+obj-$(CONFIG_COMMON_CLK_STM32H7)	+= clk-stm32h7.o
+obj-$(CONFIG_COMMON_CLK_STM32MP157)	+= clk-stm32mp1.o
+obj-$(CONFIG_ARCH_TANGO)		+= clk-tango4.o
+obj-$(CONFIG_CLK_TWL6040)		+= clk-twl6040.o
+
+

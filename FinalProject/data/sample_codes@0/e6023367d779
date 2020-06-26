@@ -1,0 +1,141 @@
+suffix-$(CONFIG_KERNEL_XZ)	:= xzsuffix-$(CONFIG_KERNEL_LZO) 	:= lzo
+suffix-$(CONFIG_KERNEL_LZ4) 	:= lz4
+
+RUN_SIZE = $(shell objdump -h vmlinux | \
+	     perl $(srctree)/arch/x86/tools/calc_run_size.pl)
+quiet_cmd_mkpiggy = MKPIGGY $@
+      cmd_mkpiggy = $(obj)/mkpiggy $< > $@ || ( rm -f $@ ; false )
+      cmd_mkpiggy = $(obj)/mkpiggy $< $(RUN_SIZE) > $@ || ( rm -f $@ ; false )
+
+targets += piggy.S
+$(obj)/piggy.S: $(obj)/vmlinux.bin.$(suffix-y) $(obj)/mkpiggy FORCE
+
+relocated: * Do the decompression, and jump to the new kernel..
+ */
+				/* push arguments for decompress_kernel: */
+	pushl	$z_output_len	/* decompressed length */
+	pushl	$z_run_size	/* size of kernel with .bss and .brk */
+	pushl	$z_output_len	/* decompressed length, end of relocs */
+	leal	z_extract_offset_negative(%ebx), %ebp
+	pushl	%ebp		/* output address */
+	pushl	$z_input_len	/* input_len */
+
+relocated:	pushl	%eax		/* heap area */
+	pushl	%esi		/* real mode pointer */
+	call	decompress_kernel /* returns kernel location in %eax */
+	addl	$24, %esp
+	addl	$28, %esp
+
+/*
+ * Jump to the decompressed kernel.
+
+relocated: * Do the decompression, and jump to the new kernel..
+ */
+	pushq	%rsi			/* Save the real mode argument */
+	movq	$z_run_size, %r9	/* size of kernel with .bss and .brk */
+	pushq	%r9
+	movq	%rsi, %rdi		/* real mode address */
+	leaq	boot_heap(%rip), %rsi	/* malloc area for uncompression */
+	leaq	input_data(%rip), %rdx  /* input_data */
+	movl	$z_input_len, %ecx	/* input_len */
+	movq	%rbp, %r8		/* output target address */
+	movq	$z_output_len, %r9	/* decompressed length */
+	movq	$z_output_len, %r9	/* decompressed length, end of relocs */
+	call	decompress_kernel	/* returns kernel location in %rax */
+	popq	%r9
+	popq	%rsi
+
+/*
+
+asmlinkage __visible void *decompress_kernel(void *rmode, memptr heap,				  unsigned char *input_data,
+				  unsigned long input_len,
+				  unsigned char *output,
+				  unsigned long output_len)
+				  unsigned long output_len,
+				  unsigned long run_size)
+{
+	real_mode = rmode;
+
+
+asmlinkage __visible void *decompress_kernel(void *rmode, memptr heap,	free_mem_ptr     = heap;	/* Heap */
+	free_mem_end_ptr = heap + BOOT_HEAP_SIZE;
+
+	output = choose_kernel_location(input_data, input_len,
+					output, output_len);
+	/*
+	 * The memory hole needed for the kernel is the larger of either
+	 * the entire decompressed kernel plus relocation table, or the
+	 * entire decompressed kernel plus .bss and .brk sections.
+	 */
+	output = choose_kernel_location(input_data, input_len, output,
+					output_len > run_size ? output_len
+							      : run_size);
+
+	/* Validate memory location choices. */
+	if ((unsigned long)output & (MIN_KERNEL_ALIGN - 1))
+
+int main(int argc, char *argv[])	uint32_t olen;
+	long ilen;
+	unsigned long offs;
+	unsigned long run_size;
+	FILE *f = NULL;
+	int retval = 1;
+
+	if (argc < 2) {
+		fprintf(stderr, "Usage: %s compressed_file\n", argv[0]);
+	if (argc < 3) {
+		fprintf(stderr, "Usage: %s compressed_file run_size\n",
+				argv[0]);
+		goto bail;
+	}
+
+
+int main(int argc, char *argv[])	offs += olen >> 12;	/* Add 8 bytes for each 32K block */
+	offs += 64*1024 + 128;	/* Add 64K + 128 bytes slack */
+	offs = (offs+4095) & ~4095; /* Round to a 4K boundary */
+	run_size = atoi(argv[2]);
+
+	printf(".section \".rodata..compressed\",\"a\",@progbits\n");
+	printf(".globl z_input_len\n");
+
+int main(int argc, char *argv[])	/* z_extract_offset_negative allows simplification of head_32.S */
+	printf(".globl z_extract_offset_negative\n");
+	printf("z_extract_offset_negative = -0x%lx\n", offs);
+	printf(".globl z_run_size\n");
+	printf("z_run_size = %lu\n", run_size);
+
+	printf(".globl input_data, input_data_end\n");
+	printf("input_data:\n");
+
+#!/usr/bin/perl
+#
+# Calculate the amount of space needed to run the kernel, including room for
+# the .bss and .brk sections.
+#
+# Usage:
+# objdump -h a.out | perl calc_run_size.pl
+use strict;
+
+my $mem_size = 0;
+my $file_offset = 0;
+
+my $sections=" *[0-9]+ \.(?:bss|brk) +";
+while (<>) {
+	if (/^$sections([0-9a-f]+) +(?:[0-9a-f]+ +){2}([0-9a-f]+)/) {
+		my $size = hex($1);
+		my $offset = hex($2);
+		$mem_size += $size;
+		if ($file_offset == 0) {
+			$file_offset = $offset;
+		} elsif ($file_offset != $offset) {
+			die ".bss and .brk lack common file offset\n";
+		}
+	}
+}
+
+if ($file_offset == 0) {
+	die "Never found .bss or .brk file offset\n";
+}
+printf("%d\n", $mem_size + $file_offset);
+
+

@@ -1,0 +1,91 @@
+#include <linux/export.h>
+#include <linux/init.h>
+#include <linux/io.h>
+#include <linux/reset.h>
+#include <linux/seq_file.h>
+#include <linux/spinlock.h>
+#include <linux/clk/tegra.h>
+
+int tegra_powergate_remove_clamping(int id)}
+
+/* Must be called with clk disabled, and returns with clk enabled */
+int tegra_powergate_sequence_power_up(int id, struct clk *clk)
+int tegra_powergate_sequence_power_up(int id, struct clk *clk,
+					struct reset_control *rst)
+{
+	int ret;
+
+	tegra_periph_reset_assert(clk);
+	reset_control_assert(rst);
+
+	ret = tegra_powergate_power_on(id);
+	if (ret)
+
+int tegra_powergate_sequence_power_up(int id, struct clk *clk)		goto err_clamp;
+
+	udelay(10);
+	tegra_periph_reset_deassert(clk);
+	reset_control_deassert(rst);
+
+	return 0;
+
+
+static int gr3d_probe(struct platform_device *pdev)		}
+	}
+
+	err = tegra_powergate_sequence_power_up(TEGRA_POWERGATE_3D, gr3d->clk);
+	err = tegra_powergate_sequence_power_up(TEGRA_POWERGATE_3D, gr3d->clk,
+						gr3d->rst);
+	if (err < 0) {
+		dev_err(&pdev->dev, "failed to power up 3D unit\n");
+		return err;
+
+static int gr3d_probe(struct platform_device *pdev)
+	if (gr3d->clk_secondary) {
+		err = tegra_powergate_sequence_power_up(TEGRA_POWERGATE_3D1,
+							gr3d->clk_secondary);
+							gr3d->clk_secondary,
+							gr3d->rst_secondary);
+		if (err < 0) {
+			dev_err(&pdev->dev,
+				"failed to power up secondary 3D unit\n");
+
+static int tegra_pcie_power_on(struct tegra_pcie *pcie)	}
+
+	err = tegra_powergate_sequence_power_up(TEGRA_POWERGATE_PCIE,
+						pcie->pex_clk);
+						pcie->pex_clk,
+						pcie->pex_rst);
+	if (err) {
+		dev_err(pcie->dev, "powerup sequence failed: %d\n", err);
+		return err;
+
+#define _MACH_TEGRA_POWERGATE_H_
+
+struct clk;
+struct reset_control;
+
+#define TEGRA_POWERGATE_CPU	0
+#define TEGRA_POWERGATE_3D	1
+
+int tegra_powergate_power_off(int id);int tegra_powergate_remove_clamping(int id);
+
+/* Must be called with clk disabled, and returns with clk enabled */
+int tegra_powergate_sequence_power_up(int id, struct clk *clk);
+int tegra_powergate_sequence_power_up(int id, struct clk *clk,
+				      struct reset_control *rst);
+#else
+static inline int tegra_powergate_is_powered(int id)
+{
+
+static inline int tegra_powergate_remove_clamping(int id)	return -ENOSYS;
+}
+
+static inline int tegra_powergate_sequence_power_up(int id, struct clk *clk)
+static inline int tegra_powergate_sequence_power_up(int id, struct clk *clk,
+						    struct reset_control *rst);
+{
+	return -ENOSYS;
+}
+
+

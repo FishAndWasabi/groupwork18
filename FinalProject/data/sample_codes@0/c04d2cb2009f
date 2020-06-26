@@ -1,0 +1,294 @@
+Written 1996 by Gero Kuhlmann <gero@gkminix.han.de>Updated 1997 by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
+Updated 2006 by Nico Schottelius <nico-kernel-nfsroot@schottelius.org>
+Updated 2006 by Horms <horms@verge.net.au>
+Updated 2018 by Chris Novakovic <chris@chrisn.me.uk>
+
+
+
+
+nfsroot=[<server-ip>:]<root-dir>[,<nfs-options>]
+
+ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>:
+   <dns0-ip>:<dns1-ip>
+   <dns0-ip>:<dns1-ip>:<ntp0-ip>
+
+  This parameter tells the kernel how to configure IP addresses of devices
+  and also how to set up the IP routing table. It was originally called
+
+ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>:  <dns1-ip>	IP address of secondary nameserver.
+		See <dns0-ip>.
+
+  After configuration (whether manual or automatic) is complete, a file is
+  created at /proc/net/pnp in the following format; lines are omitted if
+  their respective value is empty following configuration.
+  <ntp0-ip>	IP address of a Network Time Protocol (NTP) server.
+		Value is exported to /proc/net/ipconfig/ntp_servers, but is
+		otherwise unused (see below).
+
+		Default: None if not using autoconfiguration; determined
+		automatically if using autoconfiguration.
+
+  After configuration (whether manual or automatic) is complete, two files
+  are created in the following format; lines are omitted if their respective
+  value is empty following configuration:
+
+  - /proc/net/pnp:
+
+	#PROTO: <DHCP|BOOTP|RARP|MANUAL>	(depending on configuration method)
+	domain <dns-domain>			(if autoconfigured, the DNS domain)
+
+ip=<client-ip>:<server-ip>:<gw-ip>:<netmask>:<hostname>:<device>:<autoconf>:	nameserver <dns2-ip>			(tertiary name server IP)
+	bootserver <server-ip>			(NFS server IP)
+
+  <dns-domain> and <dns2-ip> are requested during autoconfiguration; they
+  cannot be specified as part of the "ip=" kernel command line parameter.
+  - /proc/net/ipconfig/ntp_servers:
+
+	<ntp0-ip>				(NTP server IP)
+	<ntp1-ip>				(NTP server IP)
+	<ntp2-ip>				(NTP server IP)
+
+  <dns-domain> and <dns2-ip> (in /proc/net/pnp) and <ntp1-ip> and <ntp2-ip>
+  (in /proc/net/ipconfig/ntp_servers) are requested during autoconfiguration;
+  they cannot be specified as part of the "ip=" kernel command line parameter.
+
+  Because the "domain" and "nameserver" options are recognised by DNS
+  resolvers, /etc/resolv.conf is often linked to /proc/net/pnp on systems
+  that use an NFS root filesystem.
+
+  Note that the kernel will not synchronise the system time with any NTP
+  servers it discovers; this is the responsibility of a user space process
+  (e.g. an initrd/initramfs script that passes the IP addresses listed in
+  /proc/net/ipconfig/ntp_servers to an NTP client before mounting the real
+  root filesystem if it is on NFS).
+
+
+nfsrootdebug
+
+
+ *
+ *  Multiple Nameservers in /proc/net/pnp
+ *              --  Josef Siemes <jsiemes@web.de>, Aug 2002
+ *
+ *  NTP servers in /proc/net/ipconfig/ntp_servers
+ *              --  Chris Novakovic <chris@chrisn.me.uk>, April 2018
+ */
+
+#include <linux/types.h>
+
+#define CONF_TIMEOUT_MAX	(HZ*30)	/* Maximum allowed timeout */
+#define CONF_NAMESERVERS_MAX   3       /* Maximum number of nameservers
+					   - '3' from resolv.h */
+#define CONF_NTP_SERVERS_MAX   3	/* Maximum number of NTP servers */
+
+#define NONE cpu_to_be32(INADDR_NONE)
+#define ANY cpu_to_be32(INADDR_ANY)
+
+static int ic_proto_used;			/* Protocol used, if any */#define ic_proto_used 0
+#endif
+static __be32 ic_nameservers[CONF_NAMESERVERS_MAX]; /* DNS Server IP addresses */
+static __be32 ic_ntp_servers[CONF_NTP_SERVERS_MAX]; /* NTP server IP addresses */
+static u8 ic_domain[64];		/* DNS (not NIS) domain name */
+
+/*
+
+static inline void __init ic_nameservers_predef(void)		ic_nameservers[i] = NONE;
+}
+
+/* Predefine NTP servers */
+static inline void __init ic_ntp_servers_predef(void)
+{
+	int i;
+
+	for (i = 0; i < CONF_NTP_SERVERS_MAX; i++)
+		ic_ntp_servers[i] = NONE;
+}
+
+/*
+ *	DHCP/BOOTP support.
+ */
+
+ic_dhcp_init_options(u8 *options, struct ic_device *d)			17,	/* Boot path */
+			26,	/* MTU */
+			40,	/* NIS domain name */
+			42,	/* NTP servers */
+		};
+
+		*e++ = 55;	/* Parameter request list */
+
+static void __init ic_bootp_init_ext(u8 *e) */
+static inline void __init ic_bootp_init(void)
+{
+	/* Re-initialise all name servers to NONE, in case any were set via the
+	 * "ip=" or "nfsaddrs=" kernel command line parameters: any IP addresses
+	 * specified there will already have been decoded but are no longer
+	 * needed
+	/* Re-initialise all name servers and NTP servers to NONE, in case any
+	 * were set via the "ip=" or "nfsaddrs=" kernel command line parameters:
+	 * any IP addresses specified there will already have been decoded but
+	 * are no longer needed
+	 */
+	ic_nameservers_predef();
+	ic_ntp_servers_predef();
+
+	dev_add_pack(&bootp_packet_type);
+}
+
+static void __init ic_do_bootp_ext(u8 *ext)		ic_bootp_string(utsname()->domainname, ext+1, *ext,
+				__NEW_UTS_LEN);
+		break;
+	case 42:	/* NTP servers */
+		servers = *ext / 4;
+		if (servers > CONF_NTP_SERVERS_MAX)
+			servers = CONF_NTP_SERVERS_MAX;
+		for (i = 0; i < servers; i++) {
+			if (ic_ntp_servers[i] == NONE)
+				memcpy(&ic_ntp_servers[i], ext+1+4*i, 4);
+		}
+		break;
+	}
+}
+
+
+static int __init ic_dynamic(void)
+#ifdef CONFIG_PROC_FS
+
+/* Name servers: */
+static int pnp_seq_show(struct seq_file *seq, void *v)
+{
+	int i;
+
+static const struct file_operations pnp_seq_fops = {};
+
+/* Create the /proc/net/ipconfig directory */
+static int ipconfig_proc_net_init(void)
+static int __init ipconfig_proc_net_init(void)
+{
+	ipconfig_dir = proc_net_mkdir(&init_net, "ipconfig", init_net.proc_net);
+	if (!ipconfig_dir)
+
+static int ipconfig_proc_net_init(void)
+	return 0;
+}
+
+/* Create a new file under /proc/net/ipconfig */
+static int ipconfig_proc_net_create(const char *name,
+				    const struct file_operations *fops)
+{
+	char *pname;
+	struct proc_dir_entry *p;
+
+	if (!ipconfig_dir)
+		return -ENOMEM;
+
+	pname = kasprintf(GFP_KERNEL, "%s%s", "ipconfig/", name);
+	if (!pname)
+		return -ENOMEM;
+
+	p = proc_create(pname, 0444, init_net.proc_net, fops);
+	kfree(pname);
+	if (!p)
+		return -ENOMEM;
+
+	return 0;
+}
+
+/* Write NTP server IP addresses to /proc/net/ipconfig/ntp_servers */
+static int ntp_servers_seq_show(struct seq_file *seq, void *v)
+{
+	int i;
+
+	for (i = 0; i < CONF_NTP_SERVERS_MAX; i++) {
+		if (ic_ntp_servers[i] != NONE)
+			seq_printf(seq, "%pI4\n", &ic_ntp_servers[i]);
+	}
+	return 0;
+}
+
+static int ntp_servers_seq_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ntp_servers_seq_show, NULL);
+}
+
+static const struct file_operations ntp_servers_seq_fops = {
+	.open		= ntp_servers_seq_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif /* CONFIG_PROC_FS */
+
+/*
+
+static int __init ip_auto_config(void)	int err;
+	unsigned int i;
+
+	/* Initialise all name servers to NONE (but only if the "ip=" or
+	 * "nfsaddrs=" kernel command line parameters weren't decoded, otherwise
+	 * we'll overwrite the IP addresses specified there)
+	/* Initialise all name servers and NTP servers to NONE (but only if the
+	 * "ip=" or "nfsaddrs=" kernel command line parameters weren't decoded,
+	 * otherwise we'll overwrite the IP addresses specified there)
+	 */
+	if (ic_set_manually == 0)
+	if (ic_set_manually == 0) {
+		ic_nameservers_predef();
+		ic_ntp_servers_predef();
+	}
+
+#ifdef CONFIG_PROC_FS
+	proc_create("pnp", 0444, init_net.proc_net, &pnp_seq_fops);
+
+	ipconfig_proc_net_init();
+	if (ipconfig_proc_net_init() == 0)
+		ipconfig_proc_net_create("ntp_servers", &ntp_servers_seq_fops);
+#endif /* CONFIG_PROC_FS */
+
+	if (!ic_enable)
+
+static int __init ip_auto_config(void)		if (i + 1 == CONF_NAMESERVERS_MAX)
+			pr_cont("\n");
+	}
+	/* NTP servers (if any): */
+	for (i = 0; i < CONF_NTP_SERVERS_MAX; i++) {
+		if (ic_ntp_servers[i] != NONE) {
+			if (i == 0)
+				pr_info("     ntpserver%u=%pI4",
+					i, &ic_ntp_servers[i]);
+			else
+				pr_cont(", ntpserver%u=%pI4",
+					i, &ic_ntp_servers[i]);
+		}
+		if (i + 1 == CONF_NTP_SERVERS_MAX)
+			pr_cont("\n");
+	}
+#endif /* !SILENT */
+
+	/*
+
+static int __init ip_auto_config_setup(char *addrs)		return 1;
+	}
+
+	/* Initialise all name servers to NONE */
+	/* Initialise all name servers and NTP servers to NONE */
+	ic_nameservers_predef();
+	ic_ntp_servers_predef();
+
+	/* Parse string for static IP assignment.  */
+	ip = addrs;
+
+static int __init ip_auto_config_setup(char *addrs)						ic_nameservers[1] = NONE;
+				}
+				break;
+			case 9:
+				if (CONF_NTP_SERVERS_MAX >= 1) {
+					ic_ntp_servers[0] = in_aton(ip);
+					if (ic_ntp_servers[0] == ANY)
+						ic_ntp_servers[0] = NONE;
+				}
+				break;
+			}
+		}
+		ip = cp;
+
+
