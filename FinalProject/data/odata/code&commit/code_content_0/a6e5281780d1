@@ -1,0 +1,150 @@
+perf-y += bpf.operf-y += topology.o
+perf-y += cpumap.o
+perf-y += stat.o
+perf-y += event_update.o
+
+$(OUTPUT)tests/llvm-src-base.c: tests/bpf-script-example.c tests/Build
+	$(call rule_mkdir)
+
+static struct test generic_tests[] = {		.desc = "Test stat round synthesize",
+		.func = test__synthesize_stat_round,
+	},
+	{
+		.desc = "Test attr update synthesize",
+		.func = test__event_update,
+	},
+	{
+		.func = NULL,
+	},
+
+#include <linux/compiler.h>
+#include "evlist.h"
+#include "evsel.h"
+#include "machine.h"
+#include "tests.h"
+#include "debug.h"
+
+static int process_event_unit(struct perf_tool *tool __maybe_unused,
+			      union perf_event *event,
+			      struct perf_sample *sample __maybe_unused,
+			      struct machine *machine __maybe_unused)
+{
+	struct event_update_event *ev = (struct event_update_event *) event;
+
+	TEST_ASSERT_VAL("wrong id", ev->id == 123);
+	TEST_ASSERT_VAL("wrong id", ev->type == PERF_EVENT_UPDATE__UNIT);
+	TEST_ASSERT_VAL("wrong unit", !strcmp(ev->data, "KRAVA"));
+	return 0;
+}
+
+int test__event_update(int subtest __maybe_unused)
+{
+	struct perf_evlist *evlist;
+	struct perf_evsel *evsel;
+
+	evlist = perf_evlist__new_default();
+	TEST_ASSERT_VAL("failed to get evlist", evlist);
+
+	evsel = perf_evlist__first(evlist);
+
+	TEST_ASSERT_VAL("failed to allos ids",
+			!perf_evsel__alloc_id(evsel, 1, 1));
+
+	perf_evlist__id_add(evlist, evsel, 0, 0, 123);
+
+	evsel->unit = strdup("KRAVA");
+
+	TEST_ASSERT_VAL("failed to synthesize attr update unit",
+			!perf_event__synthesize_event_update_unit(NULL, evsel, process_event_unit));
+
+	return 0;
+}
+
+int test__cpu_map_synthesize(int subtest);int test__synthesize_stat_config(int subtest);
+int test__synthesize_stat(int subtest);
+int test__synthesize_stat_round(int subtest);
+int test__event_update(int subtest);
+
+#if defined(__arm__) || defined(__aarch64__)
+#ifdef HAVE_DWARF_UNWIND_SUPPORT
+
+struct attr_event {	u64 id[];
+};
+
+enum {
+	PERF_EVENT_UPDATE__UNIT  = 0,
+};
+
+struct event_update_event {
+	struct perf_event_header header;
+	u64 type;
+
+int perf_event__synthesize_attr(struct perf_tool *tool,	return err;
+}
+
+static struct event_update_event *
+event_update_event__new(size_t size, u64 type, u64 id)
+{
+	struct event_update_event *ev;
+
+	size += sizeof(*ev);
+	size  = PERF_ALIGN(size, sizeof(u64));
+
+	ev = zalloc(size);
+	if (ev) {
+		ev->header.type = PERF_RECORD_EVENT_UPDATE;
+		ev->header.size = (u16)size;
+		ev->type = type;
+		ev->id = id;
+	}
+	return ev;
+}
+
+int
+perf_event__synthesize_event_update_unit(struct perf_tool *tool,
+					 struct perf_evsel *evsel,
+					 perf_event__handler_t process)
+{
+	struct event_update_event *ev;
+	size_t size = strlen(evsel->unit);
+	int err;
+
+	ev = event_update_event__new(size + 1, PERF_EVENT_UPDATE__UNIT, evsel->id[0]);
+	if (ev == NULL)
+		return -ENOMEM;
+
+	strncpy(ev->data, evsel->unit, size);
+	err = process(tool, (union perf_event *)ev, NULL, NULL);
+	free(ev);
+	return err;
+}
+
+int perf_event__synthesize_attrs(struct perf_tool *tool,
+				   struct perf_session *session,
+				   perf_event__handler_t process)
+
+int perf_event__process_event_update(struct perf_tool *tool __maybe_unused,	if (evsel == NULL)
+		return -EINVAL;
+
+	switch (ev->type) {
+	case PERF_EVENT_UPDATE__UNIT:
+		evsel->unit = strdup(ev->data);
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+
+int perf_event__synthesize_attr(struct perf_tool *tool,int perf_event__synthesize_attrs(struct perf_tool *tool,
+				 struct perf_session *session,
+				 perf_event__handler_t process);
+int perf_event__synthesize_event_update_unit(struct perf_tool *tool,
+					     struct perf_evsel *evsel,
+					     perf_event__handler_t process);
+int perf_event__process_attr(struct perf_tool *tool, union perf_event *event,
+			     struct perf_evlist **pevlist);
+int perf_event__process_event_update(struct perf_tool *tool __maybe_unused,
+
+

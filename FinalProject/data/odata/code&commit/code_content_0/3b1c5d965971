@@ -1,0 +1,122 @@
+FEATURE_TESTS_BASIC :=                  \        sdt				\
+        setns				\
+        libaio				\
+        libzstd				\
+        disassembler-four-args
+
+# FEATURE_TESTS_BASIC + FEATURE_TESTS_EXTRA is the complete list
+
+FEATURE_DISPLAY ?=              \         get_cpuid              \
+         bpf			\
+         libaio			\
+         libzstd		\
+         disassembler-four-args
+
+# Set FEATURE_CHECK_(C|LD)FLAGS-all for all FEATURE_TESTS features.
+
+FILES=                                          \         test-clang.bin				\
+         test-llvm.bin				\
+         test-llvm-version.bin			\
+         test-libaio.bin
+         test-libaio.bin			\
+         test-libzstd.bin
+
+FILES := $(addprefix $(OUTPUT),$(FILES))
+
+
+$(OUTPUT)test-clang.bin:$(OUTPUT)test-libaio.bin:
+	$(BUILD) -lrt
+
+$(OUTPUT)test-libzstd.bin:
+	$(BUILD) -lzstd
+
+###############################
+
+clean:
+
+# include "test-disassembler-four-args.c"
+#undef main
+
+#define main main_test_zstd
+# include "test-libzstd.c"
+#undef main
+
+int main(int argc, char *argv[])
+{
+	main_test_libpython();
+
+int main(int argc, char *argv[])	main_test_libaio();
+	main_test_reallocarray();
+	main_test_disassembler_four_args();
+	main_test_libzstd();
+
+	return 0;
+}
+
+// SPDX-License-Identifier: GPL-2.0
+#include <zstd.h>
+
+int main(void)
+{
+	ZSTD_CStream	*cstream;
+
+	cstream = ZSTD_createCStream();
+	ZSTD_freeCStream(cstream);
+
+	return 0;
+}
+
+endifFEATURE_CHECK_CFLAGS-libbabeltrace := $(LIBBABELTRACE_CFLAGS)
+FEATURE_CHECK_LDFLAGS-libbabeltrace := $(LIBBABELTRACE_LDFLAGS) -lbabeltrace-ctf
+
+ifdef LIBZSTD_DIR
+  LIBZSTD_CFLAGS  := -I$(LIBZSTD_DIR)/lib
+  LIBZSTD_LDFLAGS := -L$(LIBZSTD_DIR)/lib
+endif
+FEATURE_CHECK_CFLAGS-libzstd := $(LIBZSTD_CFLAGS)
+FEATURE_CHECK_LDFLAGS-libzstd := $(LIBZSTD_LDFLAGS)
+
+FEATURE_CHECK_CFLAGS-bpf = -I. -I$(srctree)/tools/include -I$(srctree)/tools/arch/$(SRCARCH)/include/uapi -I$(srctree)/tools/include/uapi
+# include ARCH specific config
+-include $(src-perf)/arch/$(SRCARCH)/Makefile
+
+ifndef NO_LZMA  endif
+endif
+
+ifndef NO_LIBZSTD
+  ifeq ($(feature-libzstd), 1)
+    CFLAGS += -DHAVE_ZSTD_SUPPORT
+    CFLAGS += $(LIBZSTD_CFLAGS)
+    LDFLAGS += $(LIBZSTD_LDFLAGS)
+    EXTLIBS += -lzstd
+    $(call detected,CONFIG_ZSTD)
+  else
+    msg := $(warning No libzstd found, disables trace compression, please install libzstd-dev[el] and/or set LIBZSTD_DIR);
+    NO_LIBZSTD := 1
+  endif
+endif
+
+ifndef NO_BACKTRACE
+  ifeq ($(feature-backtrace), 1)
+    CFLAGS += -DHAVE_BACKTRACE_SUPPORT
+
+include ../scripts/utilities.mak# streaming for record mode. Currently Posix AIO trace streaming is
+# supported only when linking with glibc.
+#
+# Define NO_LIBZSTD if you do not want support of Zstandard based runtime
+# trace compression in record mode.
+#
+
+# As per kernel Makefile, avoid funny character set dependencies
+unexport LC_ALL
+
+static void library_status(void)	STATUS(HAVE_LZMA_SUPPORT, lzma);
+	STATUS(HAVE_AUXTRACE_SUPPORT, get_cpuid);
+	STATUS(HAVE_LIBBPF_SUPPORT, bpf);
+	STATUS(HAVE_AIO_SUPPORT, aio);
+	STATUS(HAVE_ZSTD_SUPPORT, zstd);
+}
+
+int cmd_version(int argc, const char **argv)
+
+

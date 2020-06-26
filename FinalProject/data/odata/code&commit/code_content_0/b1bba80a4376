@@ -1,0 +1,211 @@
+MODULE_PARM_DESC(disable_guest,static bool vmci_guest_personality_initialized;
+static bool vmci_host_personality_initialized;
+
+static DEFINE_MUTEX(vmci_vsock_mutex); /* protects vmci_vsock_transport_cb */
+static vmci_vsock_cb vmci_vsock_transport_cb;
+bool vmci_vsock_cb_host_called;
+
+/*
+ * vmci_get_context_id() - Gets the current context ID.
+ *
+
+u32 vmci_get_context_id(void)}
+EXPORT_SYMBOL_GPL(vmci_get_context_id);
+
+/*
+ * vmci_register_vsock_callback() - Register the VSOCK vmci_transport callback.
+ *
+ * The callback will be called when the first host or guest becomes active,
+ * or if they are already active when this function is called.
+ * To unregister the callback, call this function with NULL parameter.
+ *
+ * Returns 0 on success. -EBUSY if a callback is already registered.
+ */
+int vmci_register_vsock_callback(vmci_vsock_cb callback)
+{
+	int err = 0;
+
+	mutex_lock(&vmci_vsock_mutex);
+
+	if (vmci_vsock_transport_cb && callback) {
+		err = -EBUSY;
+		goto out;
+	}
+
+	vmci_vsock_transport_cb = callback;
+
+	if (!vmci_vsock_transport_cb) {
+		vmci_vsock_cb_host_called = false;
+		goto out;
+	}
+
+	if (vmci_guest_code_active())
+		vmci_vsock_transport_cb(false);
+
+	if (vmci_host_users() > 0) {
+		vmci_vsock_cb_host_called = true;
+		vmci_vsock_transport_cb(true);
+	}
+
+out:
+	mutex_unlock(&vmci_vsock_mutex);
+	return err;
+}
+EXPORT_SYMBOL_GPL(vmci_register_vsock_callback);
+
+void vmci_call_vsock_callback(bool is_host)
+{
+	mutex_lock(&vmci_vsock_mutex);
+
+	if (!vmci_vsock_transport_cb)
+		goto out;
+
+	/* In the host, this function could be called multiple times,
+	 * but we want to register it only once.
+	 */
+	if (is_host) {
+		if (vmci_vsock_cb_host_called)
+			goto out;
+
+		vmci_vsock_cb_host_called = true;
+	}
+
+	vmci_vsock_transport_cb(is_host);
+out:
+	mutex_unlock(&vmci_vsock_mutex);
+}
+
+static int __init vmci_drv_init(void)
+{
+	int vmci_err;
+
+extern struct pci_dev *vmci_pdev;
+u32 vmci_get_context_id(void);
+int vmci_send_datagram(struct vmci_datagram *dg);
+void vmci_call_vsock_callback(bool is_host);
+
+int vmci_host_init(void);
+void vmci_host_exit(void);
+bool vmci_host_code_active(void);
+int vmci_host_users(void);
+
+int vmci_guest_init(void);
+void vmci_guest_exit(void);
+
+static int vmci_guest_probe_device(struct pci_dev *pdev,		  vmci_dev->iobase + VMCI_CONTROL_ADDR);
+
+	pci_set_drvdata(pdev, vmci_dev);
+
+	vmci_call_vsock_callback(false);
+	return 0;
+
+err_free_irq:
+
+bool vmci_host_code_active(void)	     atomic_read(&vmci_host_active_users) > 0);
+}
+
+int vmci_host_users(void)
+{
+	return atomic_read(&vmci_host_active_users);
+}
+
+/*
+ * Called on open of /dev/vmci.
+ */
+
+static int vmci_host_do_init_context(struct vmci_host_dev *vmci_host_dev,	vmci_host_dev->ct_type = VMCIOBJ_CONTEXT;
+	atomic_inc(&vmci_host_active_users);
+
+	vmci_call_vsock_callback(true);
+
+	retval = 0;
+
+out:
+
+struct msghdr;
+typedef void (vmci_device_shutdown_fn) (void *device_registration,
+					void *user_data);
+typedef void (*vmci_vsock_cb) (bool is_host);
+
+int vmci_datagram_create_handle(u32 resource_id, u32 flags,
+				vmci_datagram_recv_cb recv_cb,
+
+int vmci_doorbell_destroy(struct vmci_handle handle);int vmci_doorbell_notify(struct vmci_handle handle, u32 priv_flags);
+u32 vmci_get_context_id(void);
+bool vmci_is_context_owner(u32 context_id, kuid_t uid);
+int vmci_register_vsock_callback(vmci_vsock_cb callback);
+
+int vmci_event_subscribe(u32 event,
+			 vmci_event_cb callback, void *callback_data,
+
+static bool vmci_check_transport(struct vsock_sock *vsk)	return vsk->transport == &vmci_transport;
+}
+
+static int __init vmci_transport_init(void)
+void vmci_vsock_transport_cb(bool is_host)
+{
+	int features = VSOCK_TRANSPORT_F_DGRAM | VSOCK_TRANSPORT_F_H2G;
+	int cid;
+	int err;
+	int features;
+
+	cid = vmci_get_context_id();
+	if (is_host)
+		features = VSOCK_TRANSPORT_F_H2G;
+	else
+		features = VSOCK_TRANSPORT_F_G2H;
+
+	if (cid == VMCI_INVALID_ID)
+		return -EINVAL;
+	vsock_core_register(&vmci_transport, features);
+}
+
+	if (cid != VMCI_HOST_CONTEXT_ID)
+		features |= VSOCK_TRANSPORT_F_G2H;
+static int __init vmci_transport_init(void)
+{
+	int err;
+
+	/* Create the datagram handle that we will use to send and receive all
+	 * VSocket control messages for this context.
+
+static int __init vmci_transport_init(void)		pr_err("Unable to create datagram handle. (%d)\n", err);
+		return vmci_transport_error_to_vsock_error(err);
+	}
+
+	err = vmci_event_subscribe(VMCI_EVENT_QP_RESUMED,
+				   vmci_transport_qp_resumed_cb,
+				   NULL, &vmci_transport_qp_resumed_sub_id);
+
+static int __init vmci_transport_init(void)		goto err_destroy_stream_handle;
+	}
+
+	err = vsock_core_register(&vmci_transport, features);
+	/* Register only with dgram feature, other features (H2G, G2H) will be
+	 * registered when the first host or guest becomes active.
+	 */
+	err = vsock_core_register(&vmci_transport, VSOCK_TRANSPORT_F_DGRAM);
+	if (err < 0)
+		goto err_unsubscribe;
+
+	err = vmci_register_vsock_callback(vmci_vsock_transport_cb);
+	if (err < 0)
+		goto err_unregister;
+
+	return 0;
+
+err_unregister:
+	vsock_core_unregister(&vmci_transport);
+err_unsubscribe:
+	vmci_event_unsubscribe(vmci_transport_qp_resumed_sub_id);
+err_destroy_stream_handle:
+
+static void __exit vmci_transport_exit(void)		vmci_transport_qp_resumed_sub_id = VMCI_INVALID_ID;
+	}
+
+	vmci_register_vsock_callback(NULL);
+	vsock_core_unregister(&vmci_transport);
+}
+module_exit(vmci_transport_exit);
+
+

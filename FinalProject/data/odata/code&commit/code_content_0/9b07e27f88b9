@@ -1,0 +1,1511 @@
+include::itrace.txt[]--strip::
+	Use with --itrace to strip out non-synthesized events.
+
+-j::
+--jit::
+	Process jitdump files by injecting the mmap records corresponding to jitted
+	functions. This option also generates the ELF images for each jitted function
+	found in the jitdumps files captured in the input perf.data file. Use this option
+	if you are monitoring environment using JIT runtimes, such as Java, DART or V8.
+
+SEE ALSO
+--------
+linkperf:perf-record[1], linkperf:perf-report[1], linkperf:perf-archive[1]
+
+#include "util/build-id.h"
+#include "util/data.h"
+#include "util/auxtrace.h"
+#include "util/jit.h"
+
+#include <subcmd/parse-options.h>
+
+
+struct perf_inject {	bool			sched_stat;
+	bool			have_auxtrace;
+	bool			strip;
+	bool			jit_mode;
+	const char		*input_name;
+	struct perf_data_file	output;
+	u64			bytes_written;
+
+static int perf_event__repipe_oe_synth(struct perf_tool *tool,	return perf_event__repipe_synth(tool, event);
+}
+
+#ifdef HAVE_LIBELF_SUPPORT
+static int perf_event__drop_oe(struct perf_tool *tool __maybe_unused,
+			       union perf_event *event __maybe_unused,
+			       struct ordered_events *oe __maybe_unused)
+{
+	return 0;
+}
+#endif
+
+static int perf_event__repipe_op2_synth(struct perf_tool *tool,
+					union perf_event *event,
+					struct perf_session *session
+
+static int perf_event__repipe_mmap(struct perf_tool *tool,	return err;
+}
+
+#ifdef HAVE_LIBELF_SUPPORT
+static int perf_event__jit_repipe_mmap(struct perf_tool *tool,
+				       union perf_event *event,
+				       struct perf_sample *sample,
+				       struct machine *machine)
+{
+	struct perf_inject *inject = container_of(tool, struct perf_inject, tool);
+	u64 n = 0;
+
+	/*
+	 * if jit marker, then inject jit mmaps and generate ELF images
+	 */
+	if (!jit_process(inject->session, &inject->output, machine,
+			 event->mmap.filename, sample->pid, &n)) {
+		inject->bytes_written += n;
+		return 0;
+	}
+	return perf_event__repipe_mmap(tool, event, sample, machine);
+}
+#endif
+
+static int perf_event__repipe_mmap2(struct perf_tool *tool,
+				   union perf_event *event,
+				   struct perf_sample *sample,
+
+static int perf_event__repipe_mmap2(struct perf_tool *tool,	return err;
+}
+
+#ifdef HAVE_LIBELF_SUPPORT
+static int perf_event__jit_repipe_mmap2(struct perf_tool *tool,
+					union perf_event *event,
+					struct perf_sample *sample,
+					struct machine *machine)
+{
+	struct perf_inject *inject = container_of(tool, struct perf_inject, tool);
+	u64 n = 0;
+
+	/*
+	 * if jit marker, then inject jit mmaps and generate ELF images
+	 */
+	if (!jit_process(inject->session, &inject->output, machine,
+			  event->mmap2.filename, sample->pid, &n)) {
+		inject->bytes_written += n;
+		return 0;
+	}
+	return perf_event__repipe_mmap2(tool, event, sample, machine);
+}
+#endif
+
+static int perf_event__repipe_fork(struct perf_tool *tool,
+				   union perf_event *event,
+				   struct perf_sample *sample,
+
+static int __cmd_inject(struct perf_inject *inject)	return ret;
+}
+
+#ifdef HAVE_LIBELF_SUPPORT
+static int
+jit_validate_events(struct perf_session *session)
+{
+	struct perf_evsel *evsel;
+
+	/*
+	 * check that all events use CLOCK_MONOTONIC
+	 */
+	evlist__for_each(session->evlist, evsel) {
+		if (evsel->attr.use_clockid == 0 || evsel->attr.clockid != CLOCK_MONOTONIC)
+			return -1;
+	}
+	return 0;
+}
+#endif
+
+int cmd_inject(int argc, const char **argv, const char *prefix __maybe_unused)
+{
+	struct perf_inject inject = {
+
+int cmd_inject(int argc, const char **argv, const char *prefix __maybe_unused)	};
+	int ret;
+
+	const struct option options[] = {
+	struct option options[] = {
+		OPT_BOOLEAN('b', "build-ids", &inject.build_ids,
+			    "Inject build-ids into the output stream"),
+		OPT_STRING('i', "input", &inject.input_name, "file",
+
+int cmd_inject(int argc, const char **argv, const char *prefix __maybe_unused)		OPT_BOOLEAN('s', "sched-stat", &inject.sched_stat,
+			    "Merge sched-stat and sched-switch for getting events "
+			    "where and how long tasks slept"),
+		OPT_BOOLEAN('j', "jit", &inject.jit_mode, "merge jitdump files into perf.data file"),
+		OPT_INCR('v', "verbose", &verbose,
+			 "be more verbose (show build ids, etc)"),
+		OPT_STRING(0, "kallsyms", &symbol_conf.kallsyms_name, "file",
+
+int cmd_inject(int argc, const char **argv, const char *prefix __maybe_unused)		"perf inject [<options>]",
+		NULL
+	};
+
+#ifndef HAVE_LIBELF_SUPPORT
+	set_option_nobuild(options, 'j', "jit", "NO_LIBELF=1", true);
+#endif
+	argc = parse_options(argc, argv, options, inject_usage, 0);
+
+	/*
+
+int cmd_inject(int argc, const char **argv, const char *prefix __maybe_unused)		inject.tool.ordered_events = true;
+		inject.tool.ordering_requires_timestamps = true;
+	}
+
+#ifdef HAVE_LIBELF_SUPPORT
+	if (inject.jit_mode) {
+		/*
+		 * validate event is using the correct clockid
+		 */
+		if (jit_validate_events(inject.session)) {
+			fprintf(stderr, "error, jitted code must be sampled with perf record -k 1\n");
+			return -1;
+		}
+		inject.tool.mmap2	   = perf_event__jit_repipe_mmap2;
+		inject.tool.mmap	   = perf_event__jit_repipe_mmap;
+		inject.tool.ordered_events = true;
+		inject.tool.ordering_requires_timestamps = true;
+		/*
+		 * JIT MMAP injection injects all MMAP events in one go, so it
+		 * does not obey finished_round semantics.
+		 */
+		inject.tool.finished_round = perf_event__drop_oe;
+	}
+#endif
+	ret = symbol__init(&inject.session->header.env);
+	if (ret < 0)
+		goto out_delete;
+
+libperf-y += scripting-engines/libperf-$(CONFIG_ZLIB) += zlib.o
+libperf-$(CONFIG_LZMA) += lzma.o
+libperf-y += demangle-java.o
+libperf-$(CONFIG_LIBELF) += jitdump.o
+libperf-$(CONFIG_LIBELF) += genelf.o
+
+CFLAGS_config.o   += -DETC_PERFCONFIG="BUILD_STR($(ETC_PERFCONFIG_SQ))"
+
+
+/*
+ * genelf.c
+ * Copyright (C) 2014, Google, Inc
+ *
+ * Contributed by:
+ * 	Stephane Eranian <eranian@gmail.com>
+ *
+ * Released under the GPL v2. (and only v2, not any later version)
+ */
+
+#include <sys/types.h>
+#include <stdio.h>
+#include <getopt.h>
+#include <stddef.h>
+#include <libelf.h>
+#include <string.h>
+#include <stdlib.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <fcntl.h>
+#include <err.h>
+#include <dwarf.h>
+
+#include "perf.h"
+#include "genelf.h"
+#include "../util/jitdump.h"
+
+#define JVMTI
+
+#define BUILD_ID_URANDOM /* different uuid for each run */
+
+#ifdef HAVE_LIBCRYPTO
+
+#define BUILD_ID_MD5
+#undef BUILD_ID_SHA	/* does not seem to work well when linked with Java */
+#undef BUILD_ID_URANDOM /* different uuid for each run */
+
+#ifdef BUILD_ID_SHA
+#include <openssl/sha.h>
+#endif
+
+#ifdef BUILD_ID_MD5
+#include <openssl/md5.h>
+#endif
+#endif
+
+
+typedef struct {
+  unsigned int namesz;  /* Size of entry's owner string */
+  unsigned int descsz;  /* Size of the note descriptor */
+  unsigned int type;    /* Interpretation of the descriptor */
+  char         name[0]; /* Start of the name+desc data */
+} Elf_Note;
+
+struct options {
+	char *output;
+	int fd;
+};
+
+static char shd_string_table[] = {
+	0,
+	'.', 't', 'e', 'x', 't', 0,			/*  1 */
+	'.', 's', 'h', 's', 't', 'r', 't', 'a', 'b', 0, /*  7 */
+	'.', 's', 'y', 'm', 't', 'a', 'b', 0,		/* 17 */
+	'.', 's', 't', 'r', 't', 'a', 'b', 0,		/* 25 */
+	'.', 'n', 'o', 't', 'e', '.', 'g', 'n', 'u', '.', 'b', 'u', 'i', 'l', 'd', '-', 'i', 'd', 0, /* 33 */
+	'.', 'd', 'e', 'b', 'u', 'g', '_', 'l', 'i', 'n', 'e', 0, /* 52 */
+	'.', 'd', 'e', 'b', 'u', 'g', '_', 'i', 'n', 'f', 'o', 0, /* 64 */
+	'.', 'd', 'e', 'b', 'u', 'g', '_', 'a', 'b', 'b', 'r', 'e', 'v', 0, /* 76 */
+};
+
+static struct buildid_note {
+	Elf_Note desc;		/* descsz: size of build-id, must be multiple of 4 */
+	char	 name[4];	/* GNU\0 */
+	char	 build_id[20];
+} bnote;
+
+static Elf_Sym symtab[]={
+	/* symbol 0 MUST be the undefined symbol */
+	{ .st_name  = 0, /* index in sym_string table */
+	  .st_info  = ELF_ST_TYPE(STT_NOTYPE),
+	  .st_shndx = 0, /* for now */
+	  .st_value = 0x0,
+	  .st_other = ELF_ST_VIS(STV_DEFAULT),
+	  .st_size  = 0,
+	},
+	{ .st_name  = 1, /* index in sym_string table */
+	  .st_info  = ELF_ST_BIND(STB_LOCAL) | ELF_ST_TYPE(STT_FUNC),
+	  .st_shndx = 1,
+	  .st_value = 0, /* for now */
+	  .st_other = ELF_ST_VIS(STV_DEFAULT),
+	  .st_size  = 0, /* for now */
+	}
+};
+
+#ifdef BUILD_ID_URANDOM
+static void
+gen_build_id(struct buildid_note *note,
+	     unsigned long load_addr __maybe_unused,
+	     const void *code __maybe_unused,
+	     size_t csize __maybe_unused)
+{
+	int fd;
+	size_t sz = sizeof(note->build_id);
+	ssize_t sret;
+
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd == -1)
+		err(1, "cannot access /dev/urandom for builid");
+
+	sret = read(fd, note->build_id, sz);
+
+	close(fd);
+
+	if (sret != (ssize_t)sz)
+		memset(note->build_id, 0, sz);
+}
+#endif
+
+#ifdef BUILD_ID_SHA
+static void
+gen_build_id(struct buildid_note *note,
+	     unsigned long load_addr __maybe_unused,
+	     const void *code,
+	     size_t csize)
+{
+	if (sizeof(note->build_id) < SHA_DIGEST_LENGTH)
+		errx(1, "build_id too small for SHA1");
+
+	SHA1(code, csize, (unsigned char *)note->build_id);
+}
+#endif
+
+#ifdef BUILD_ID_MD5
+static void
+gen_build_id(struct buildid_note *note, unsigned long load_addr, const void *code, size_t csize)
+{
+	MD5_CTX context;
+
+	if (sizeof(note->build_id) < 16)
+		errx(1, "build_id too small for MD5");
+
+	MD5_Init(&context);
+	MD5_Update(&context, &load_addr, sizeof(load_addr));
+	MD5_Update(&context, code, csize);
+	MD5_Final((unsigned char *)note->build_id, &context);
+}
+#endif
+
+/*
+ * fd: file descriptor open for writing for the output file
+ * load_addr: code load address (could be zero, just used for buildid)
+ * sym: function name (for native code - used as the symbol)
+ * code: the native code
+ * csize: the code size in bytes
+ */
+int
+jit_write_elf(int fd, uint64_t load_addr, const char *sym,
+	      const void *code, int csize)
+{
+	Elf *e;
+	Elf_Data *d;
+	Elf_Scn *scn;
+	Elf_Ehdr *ehdr;
+	Elf_Shdr *shdr;
+	char *strsym = NULL;
+	int symlen;
+	int retval = -1;
+
+	if (elf_version(EV_CURRENT) == EV_NONE) {
+		warnx("ELF initialization failed");
+		return -1;
+	}
+
+	e = elf_begin(fd, ELF_C_WRITE, NULL);
+	if (!e) {
+		warnx("elf_begin failed");
+		goto error;
+	}
+
+	/*
+	 * setup ELF header
+	 */
+	ehdr = elf_newehdr(e);
+	if (!ehdr) {
+		warnx("cannot get ehdr");
+		goto error;
+	}
+
+	ehdr->e_ident[EI_DATA] = GEN_ELF_ENDIAN;
+	ehdr->e_ident[EI_CLASS] = GEN_ELF_CLASS;
+	ehdr->e_machine = GEN_ELF_ARCH;
+	ehdr->e_type = ET_DYN;
+	ehdr->e_entry = GEN_ELF_TEXT_OFFSET;
+	ehdr->e_version = EV_CURRENT;
+	ehdr->e_shstrndx= 2; /* shdr index for section name */
+
+	/*
+	 * setup text section
+	 */
+	scn = elf_newscn(e);
+	if (!scn) {
+		warnx("cannot create section");
+		goto error;
+	}
+
+	d = elf_newdata(scn);
+	if (!d) {
+		warnx("cannot get new data");
+		goto error;
+	}
+
+	d->d_align = 16;
+	d->d_off = 0LL;
+	d->d_buf = (void *)code;
+	d->d_type = ELF_T_BYTE;
+	d->d_size = csize;
+	d->d_version = EV_CURRENT;
+
+	shdr = elf_getshdr(scn);
+	if (!shdr) {
+		warnx("cannot get section header");
+		goto error;
+	}
+
+	shdr->sh_name = 1;
+	shdr->sh_type = SHT_PROGBITS;
+	shdr->sh_addr = GEN_ELF_TEXT_OFFSET;
+	shdr->sh_flags = SHF_EXECINSTR | SHF_ALLOC;
+	shdr->sh_entsize = 0;
+
+	/*
+	 * setup section headers string table
+	 */
+	scn = elf_newscn(e);
+	if (!scn) {
+		warnx("cannot create section");
+		goto error;
+	}
+
+	d = elf_newdata(scn);
+	if (!d) {
+		warnx("cannot get new data");
+		goto error;
+	}
+
+	d->d_align = 1;
+	d->d_off = 0LL;
+	d->d_buf = shd_string_table;
+	d->d_type = ELF_T_BYTE;
+	d->d_size = sizeof(shd_string_table);
+	d->d_version = EV_CURRENT;
+
+	shdr = elf_getshdr(scn);
+	if (!shdr) {
+		warnx("cannot get section header");
+		goto error;
+	}
+
+	shdr->sh_name = 7; /* offset of '.shstrtab' in shd_string_table */
+	shdr->sh_type = SHT_STRTAB;
+	shdr->sh_flags = 0;
+	shdr->sh_entsize = 0;
+
+	/*
+	 * setup symtab section
+	 */
+	symtab[1].st_size  = csize;
+	symtab[1].st_value = GEN_ELF_TEXT_OFFSET;
+
+	scn = elf_newscn(e);
+	if (!scn) {
+		warnx("cannot create section");
+		goto error;
+	}
+
+	d = elf_newdata(scn);
+	if (!d) {
+		warnx("cannot get new data");
+		goto error;
+	}
+
+	d->d_align = 8;
+	d->d_off = 0LL;
+	d->d_buf = symtab;
+	d->d_type = ELF_T_SYM;
+	d->d_size = sizeof(symtab);
+	d->d_version = EV_CURRENT;
+
+	shdr = elf_getshdr(scn);
+	if (!shdr) {
+		warnx("cannot get section header");
+		goto error;
+	}
+
+	shdr->sh_name = 17; /* offset of '.symtab' in shd_string_table */
+	shdr->sh_type = SHT_SYMTAB;
+	shdr->sh_flags = 0;
+	shdr->sh_entsize = sizeof(Elf_Sym);
+	shdr->sh_link = 4; /* index of .strtab section */
+
+	/*
+	 * setup symbols string table
+	 * 2 = 1 for 0 in 1st entry, 1 for the 0 at end of symbol for 2nd entry
+	 */
+	symlen = 2 + strlen(sym);
+	strsym = calloc(1, symlen);
+	if (!strsym) {
+		warnx("cannot allocate strsym");
+		goto error;
+	}
+	strcpy(strsym + 1, sym);
+
+	scn = elf_newscn(e);
+	if (!scn) {
+		warnx("cannot create section");
+		goto error;
+	}
+
+	d = elf_newdata(scn);
+	if (!d) {
+		warnx("cannot get new data");
+		goto error;
+	}
+
+	d->d_align = 1;
+	d->d_off = 0LL;
+	d->d_buf = strsym;
+	d->d_type = ELF_T_BYTE;
+	d->d_size = symlen;
+	d->d_version = EV_CURRENT;
+
+	shdr = elf_getshdr(scn);
+	if (!shdr) {
+		warnx("cannot get section header");
+		goto error;
+	}
+
+	shdr->sh_name = 25; /* offset in shd_string_table */
+	shdr->sh_type = SHT_STRTAB;
+	shdr->sh_flags = 0;
+	shdr->sh_entsize = 0;
+
+	/*
+	 * setup build-id section
+	 */
+	scn = elf_newscn(e);
+	if (!scn) {
+		warnx("cannot create section");
+		goto error;
+	}
+
+	d = elf_newdata(scn);
+	if (!d) {
+		warnx("cannot get new data");
+		goto error;
+	}
+
+	/*
+	 * build-id generation
+	 */
+	gen_build_id(&bnote, load_addr, code, csize);
+	bnote.desc.namesz = sizeof(bnote.name); /* must include 0 termination */
+	bnote.desc.descsz = sizeof(bnote.build_id);
+	bnote.desc.type   = NT_GNU_BUILD_ID;
+	strcpy(bnote.name, "GNU");
+
+	d->d_align = 4;
+	d->d_off = 0LL;
+	d->d_buf = &bnote;
+	d->d_type = ELF_T_BYTE;
+	d->d_size = sizeof(bnote);
+	d->d_version = EV_CURRENT;
+
+	shdr = elf_getshdr(scn);
+	if (!shdr) {
+		warnx("cannot get section header");
+		goto error;
+	}
+
+	shdr->sh_name = 33; /* offset in shd_string_table */
+	shdr->sh_type = SHT_NOTE;
+	shdr->sh_addr = 0x0;
+	shdr->sh_flags = SHF_ALLOC;
+	shdr->sh_size = sizeof(bnote);
+	shdr->sh_entsize = 0;
+
+	if (elf_update(e, ELF_C_WRITE) < 0) {
+		warnx("elf_update 4 failed");
+		goto error;
+	}
+
+	retval = 0;
+error:
+	(void)elf_end(e);
+
+	free(strsym);
+
+
+	return retval;
+}
+
+#ifndef JVMTI
+
+static unsigned char x86_code[] = {
+    0xBB, 0x2A, 0x00, 0x00, 0x00, /* movl $42, %ebx */
+    0xB8, 0x01, 0x00, 0x00, 0x00, /* movl $1, %eax */
+    0xCD, 0x80            /* int $0x80 */
+};
+
+static struct options options;
+
+int main(int argc, char **argv)
+{
+	int c, fd, ret;
+
+	while ((c = getopt(argc, argv, "o:h")) != -1) {
+		switch (c) {
+		case 'o':
+			options.output = optarg;
+			break;
+		case 'h':
+			printf("Usage: genelf -o output_file [-h]\n");
+			return 0;
+		default:
+			errx(1, "unknown option");
+		}
+	}
+
+	fd = open(options.output, O_CREAT|O_TRUNC|O_RDWR, 0666);
+	if (fd == -1)
+		err(1, "cannot create file %s", options.output);
+
+	ret = jit_write_elf(fd, "main", x86_code, sizeof(x86_code));
+	close(fd);
+
+	if (ret != 0)
+		unlink(options.output);
+
+	return ret;
+}
+#endif
+
+#ifndef __GENELF_H__
+#define __GENELF_H__
+
+/* genelf.c */
+extern int jit_write_elf(int fd, uint64_t code_addr, const char *sym,
+			 const void *code, int csize);
+
+#if   defined(__arm__)
+#define GEN_ELF_ARCH	EM_ARM
+#define GEN_ELF_ENDIAN	ELFDATA2LSB
+#define GEN_ELF_CLASS	ELFCLASS32
+#elif defined(__aarch64__)
+#define GEN_ELF_ARCH	EM_AARCH64
+#define GEN_ELF_ENDIAN	ELFDATA2LSB
+#define GEN_ELF_CLASS	ELFCLASS64
+#elif defined(__x86_64__)
+#define GEN_ELF_ARCH	EM_X86_64
+#define GEN_ELF_ENDIAN	ELFDATA2LSB
+#define GEN_ELF_CLASS	ELFCLASS64
+#elif defined(__i386__)
+#define GEN_ELF_ARCH	EM_386
+#define GEN_ELF_ENDIAN	ELFDATA2LSB
+#define GEN_ELF_CLASS	ELFCLASS32
+#elif defined(__ppcle__)
+#define GEN_ELF_ARCH	EM_PPC
+#define GEN_ELF_ENDIAN	ELFDATA2LSB
+#define GEN_ELF_CLASS	ELFCLASS64
+#elif defined(__powerpc__)
+#define GEN_ELF_ARCH	EM_PPC64
+#define GEN_ELF_ENDIAN	ELFDATA2MSB
+#define GEN_ELF_CLASS	ELFCLASS64
+#elif defined(__powerpcle__)
+#define GEN_ELF_ARCH	EM_PPC64
+#define GEN_ELF_ENDIAN	ELFDATA2LSB
+#define GEN_ELF_CLASS	ELFCLASS64
+#else
+#error "unsupported architecture"
+#endif
+
+#if GEN_ELF_CLASS == ELFCLASS64
+#define elf_newehdr	elf64_newehdr
+#define elf_getshdr	elf64_getshdr
+#define Elf_Ehdr	Elf64_Ehdr
+#define Elf_Shdr	Elf64_Shdr
+#define Elf_Sym		Elf64_Sym
+#define ELF_ST_TYPE(a)	ELF64_ST_TYPE(a)
+#define ELF_ST_BIND(a)	ELF64_ST_BIND(a)
+#define ELF_ST_VIS(a)	ELF64_ST_VISIBILITY(a)
+#else
+#define elf_newehdr	elf32_newehdr
+#define elf_getshdr	elf32_getshdr
+#define Elf_Ehdr	Elf32_Ehdr
+#define Elf_Shdr	Elf32_Shdr
+#define Elf_Sym		Elf32_Sym
+#define ELF_ST_TYPE(a)	ELF32_ST_TYPE(a)
+#define ELF_ST_BIND(a)	ELF32_ST_BIND(a)
+#define ELF_ST_VIS(a)	ELF32_ST_VISIBILITY(a)
+#endif
+
+/* The .text section is directly after the ELF header */
+#define GEN_ELF_TEXT_OFFSET sizeof(Elf_Ehdr)
+
+#endif
+
+#ifndef __JIT_H__
+#define __JIT_H__
+
+#include <data.h>
+
+extern int jit_process(struct perf_session *session,
+		       struct perf_data_file *output,
+		       struct machine *machine,
+		       char *filename,
+		       pid_t pid,
+		       u64 *nbytes);
+
+extern int jit_inject_record(const char *filename);
+
+#endif /* __JIT_H__ */
+
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <inttypes.h>
+#include <byteswap.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
+#include "util.h"
+#include "event.h"
+#include "debug.h"
+#include "evlist.h"
+#include "symbol.h"
+#include "strlist.h"
+#include <elf.h>
+
+#include "session.h"
+#include "jit.h"
+#include "jitdump.h"
+#include "genelf.h"
+#include "../builtin.h"
+
+struct jit_buf_desc {
+	struct perf_data_file *output;
+	struct perf_session *session;
+	struct machine *machine;
+	union jr_entry   *entry;
+	void             *buf;
+	uint64_t	 sample_type;
+	size_t           bufsize;
+	FILE             *in;
+	bool		 needs_bswap; /* handles cross-endianess */
+	void		 *debug_data;
+	size_t		 nr_debug_entries;
+	uint32_t         code_load_count;
+	u64		 bytes_written;
+	struct rb_root   code_root;
+	char		 dir[PATH_MAX];
+};
+
+struct debug_line_info {
+	unsigned long vma;
+	unsigned int lineno;
+	/* The filename format is unspecified, absolute path, relative etc. */
+	char const filename[0];
+};
+
+struct jit_tool {
+	struct perf_tool tool;
+	struct perf_data_file	output;
+	struct perf_data_file	input;
+	u64 bytes_written;
+};
+
+#define hmax(a, b) ((a) > (b) ? (a) : (b))
+#define get_jit_tool(t) (container_of(tool, struct jit_tool, tool))
+
+static int
+jit_emit_elf(char *filename,
+	     const char *sym,
+	     uint64_t code_addr,
+	     const void *code,
+	     int csize)
+{
+	int ret, fd;
+
+	if (verbose > 0)
+		fprintf(stderr, "write ELF image %s\n", filename);
+
+	fd = open(filename, O_CREAT|O_TRUNC|O_WRONLY, 0644);
+	if (fd == -1) {
+		pr_warning("cannot create jit ELF %s: %s\n", filename, strerror(errno));
+		return -1;
+	}
+
+        ret = jit_write_elf(fd, code_addr, sym, (const void *)code, csize);
+
+        close(fd);
+
+        if (ret)
+                unlink(filename);
+
+	return ret;
+}
+
+static void
+jit_close(struct jit_buf_desc *jd)
+{
+	if (!(jd && jd->in))
+		return;
+	funlockfile(jd->in);
+	fclose(jd->in);
+	jd->in = NULL;
+}
+
+static int
+jit_open(struct jit_buf_desc *jd, const char *name)
+{
+	struct jitheader header;
+	struct jr_prefix *prefix;
+	ssize_t bs, bsz = 0;
+	void *n, *buf = NULL;
+	int ret, retval = -1;
+
+	jd->in = fopen(name, "r");
+	if (!jd->in)
+		return -1;
+
+	bsz = hmax(sizeof(header), sizeof(*prefix));
+
+	buf = malloc(bsz);
+	if (!buf)
+		goto error;
+
+	/*
+	 * protect from writer modifying the file while we are reading it
+	 */
+	flockfile(jd->in);
+
+	ret = fread(buf, sizeof(header), 1, jd->in);
+	if (ret != 1)
+		goto error;
+
+	memcpy(&header, buf, sizeof(header));
+
+	if (header.magic != JITHEADER_MAGIC) {
+		if (header.magic != JITHEADER_MAGIC_SW)
+			goto error;
+		jd->needs_bswap = true;
+	}
+
+	if (jd->needs_bswap) {
+		header.version    = bswap_32(header.version);
+		header.total_size = bswap_32(header.total_size);
+		header.pid	  = bswap_32(header.pid);
+		header.elf_mach   = bswap_32(header.elf_mach);
+		header.timestamp  = bswap_64(header.timestamp);
+		header.flags      = bswap_64(header.flags);
+	}
+
+	if (verbose > 2)
+		pr_debug("version=%u\nhdr.size=%u\nts=0x%llx\npid=%d\nelf_mach=%d\n",
+			header.version,
+			header.total_size,
+			(unsigned long long)header.timestamp,
+			header.pid,
+			header.elf_mach);
+
+	if (header.flags & JITDUMP_FLAGS_RESERVED) {
+		pr_err("jitdump file contains invalid or unsupported flags 0x%llx\n",
+		       (unsigned long long)header.flags & JITDUMP_FLAGS_RESERVED);
+		goto error;
+	}
+
+	bs = header.total_size - sizeof(header);
+
+	if (bs > bsz) {
+		n = realloc(buf, bs);
+		if (!n)
+			goto error;
+		bsz = bs;
+		buf = n;
+		/* read extra we do not know about */
+		ret = fread(buf, bs - bsz, 1, jd->in);
+		if (ret != 1)
+			goto error;
+	}
+	/*
+	 * keep dirname for generating files and mmap records
+	 */
+	strcpy(jd->dir, name);
+	dirname(jd->dir);
+
+	return 0;
+error:
+	funlockfile(jd->in);
+	fclose(jd->in);
+	return retval;
+}
+
+static union jr_entry *
+jit_get_next_entry(struct jit_buf_desc *jd)
+{
+	struct jr_prefix *prefix;
+	union jr_entry *jr;
+	void *addr;
+	size_t bs, size;
+	int id, ret;
+
+	if (!(jd && jd->in))
+		return NULL;
+
+	if (jd->buf == NULL) {
+		size_t sz = getpagesize();
+		if (sz < sizeof(*prefix))
+			sz = sizeof(*prefix);
+
+		jd->buf = malloc(sz);
+		if (jd->buf == NULL)
+			return NULL;
+
+		jd->bufsize = sz;
+	}
+
+	prefix = jd->buf;
+
+	/*
+	 * file is still locked at this point
+	 */
+	ret = fread(prefix, sizeof(*prefix), 1, jd->in);
+	if (ret  != 1)
+		return NULL;
+
+	if (jd->needs_bswap) {
+		prefix->id   	   = bswap_32(prefix->id);
+		prefix->total_size = bswap_32(prefix->total_size);
+		prefix->timestamp  = bswap_64(prefix->timestamp);
+	}
+	id   = prefix->id;
+	size = prefix->total_size;
+
+	bs = (size_t)size;
+	if (bs < sizeof(*prefix))
+		return NULL;
+
+	if (id >= JIT_CODE_MAX) {
+		pr_warning("next_entry: unknown prefix %d, skipping\n", id);
+		return NULL;
+	}
+	if (bs > jd->bufsize) {
+		void *n;
+		n = realloc(jd->buf, bs);
+		if (!n)
+			return NULL;
+		jd->buf = n;
+		jd->bufsize = bs;
+	}
+
+	addr = ((void *)jd->buf) + sizeof(*prefix);
+
+	ret = fread(addr, bs - sizeof(*prefix), 1, jd->in);
+	if (ret != 1)
+		return NULL;
+
+	jr = (union jr_entry *)jd->buf;
+
+	switch(id) {
+	case JIT_CODE_DEBUG_INFO:
+		if (jd->needs_bswap) {
+			uint64_t n;
+			jr->info.code_addr = bswap_64(jr->info.code_addr);
+			jr->info.nr_entry  = bswap_64(jr->info.nr_entry);
+			for (n = 0 ; n < jr->info.nr_entry; n++) {
+				jr->info.entries[n].addr    = bswap_64(jr->info.entries[n].addr);
+				jr->info.entries[n].lineno  = bswap_32(jr->info.entries[n].lineno);
+				jr->info.entries[n].discrim = bswap_32(jr->info.entries[n].discrim);
+			}
+		}
+		break;
+	case JIT_CODE_CLOSE:
+		break;
+	case JIT_CODE_LOAD:
+		if (jd->needs_bswap) {
+			jr->load.pid       = bswap_32(jr->load.pid);
+			jr->load.tid       = bswap_32(jr->load.tid);
+			jr->load.vma       = bswap_64(jr->load.vma);
+			jr->load.code_addr = bswap_64(jr->load.code_addr);
+			jr->load.code_size = bswap_64(jr->load.code_size);
+			jr->load.code_index= bswap_64(jr->load.code_index);
+		}
+		jd->code_load_count++;
+		break;
+	case JIT_CODE_MOVE:
+		if (jd->needs_bswap) {
+			jr->move.pid           = bswap_32(jr->move.pid);
+			jr->move.tid           = bswap_32(jr->move.tid);
+			jr->move.vma           = bswap_64(jr->move.vma);
+			jr->move.old_code_addr = bswap_64(jr->move.old_code_addr);
+			jr->move.new_code_addr = bswap_64(jr->move.new_code_addr);
+			jr->move.code_size     = bswap_64(jr->move.code_size);
+			jr->move.code_index    = bswap_64(jr->move.code_index);
+		}
+		break;
+	case JIT_CODE_MAX:
+	default:
+		return NULL;
+	}
+	return jr;
+}
+
+static int
+jit_inject_event(struct jit_buf_desc *jd, union perf_event *event)
+{
+	ssize_t size;
+
+	size = perf_data_file__write(jd->output, event, event->header.size);
+	if (size < 0)
+		return -1;
+
+	jd->bytes_written += size;
+	return 0;
+}
+
+static int jit_repipe_code_load(struct jit_buf_desc *jd, union jr_entry *jr)
+{
+	struct perf_sample sample;
+	union perf_event *event;
+	struct perf_tool *tool = jd->session->tool;
+	uint64_t code, addr;
+	uintptr_t uaddr;
+	char *filename;
+	struct stat st;
+	size_t size;
+	u16 idr_size;
+	const char *sym;
+	uint32_t count;
+	int ret, csize;
+	pid_t pid, tid;
+	struct {
+		u32 pid, tid;
+		u64 time;
+	} *id;
+
+	pid   = jr->load.pid;
+	tid   = jr->load.tid;
+	csize = jr->load.code_size;
+	addr  = jr->load.code_addr;
+	sym   = (void *)((unsigned long)jr + sizeof(jr->load));
+	code  = (unsigned long)jr + jr->load.p.total_size - csize;
+	count = jr->load.code_index;
+	idr_size = jd->machine->id_hdr_size;
+
+	event = calloc(1, sizeof(*event) + idr_size);
+	if (!event)
+		return -1;
+
+	filename = event->mmap2.filename;
+	size = snprintf(filename, PATH_MAX, "%s/jitted-%d-%u.so",
+			jd->dir,
+			pid,
+			count);
+
+	size++; /* for \0 */
+
+	size = PERF_ALIGN(size, sizeof(u64));
+	uaddr = (uintptr_t)code;
+	ret = jit_emit_elf(filename, sym, addr, (const void *)uaddr, csize);
+
+	if (jd->debug_data && jd->nr_debug_entries) {
+		free(jd->debug_data);
+		jd->debug_data = NULL;
+		jd->nr_debug_entries = 0;
+	}
+
+	if (ret) {
+		free(event);
+		return -1;
+	}
+	if (stat(filename, &st))
+		memset(&st, 0, sizeof(stat));
+
+	event->mmap2.header.type = PERF_RECORD_MMAP2;
+	event->mmap2.header.misc = PERF_RECORD_MISC_USER;
+	event->mmap2.header.size = (sizeof(event->mmap2) -
+			(sizeof(event->mmap2.filename) - size) + idr_size);
+
+	event->mmap2.pgoff = GEN_ELF_TEXT_OFFSET;
+	event->mmap2.start = addr;
+	event->mmap2.len   = csize;
+	event->mmap2.pid   = pid;
+	event->mmap2.tid   = tid;
+	event->mmap2.ino   = st.st_ino;
+	event->mmap2.maj   = major(st.st_dev);
+	event->mmap2.min   = minor(st.st_dev);
+	event->mmap2.prot  = st.st_mode;
+	event->mmap2.flags = MAP_SHARED;
+	event->mmap2.ino_generation = 1;
+
+	id = (void *)((unsigned long)event + event->mmap.header.size - idr_size);
+	if (jd->sample_type & PERF_SAMPLE_TID) {
+		id->pid  = pid;
+		id->tid  = tid;
+	}
+	if (jd->sample_type & PERF_SAMPLE_TIME)
+		id->time = jr->load.p.timestamp;
+
+	/*
+	 * create pseudo sample to induce dso hit increment
+	 * use first address as sample address
+	 */
+	memset(&sample, 0, sizeof(sample));
+	sample.pid  = pid;
+	sample.tid  = tid;
+	sample.time = id->time;
+	sample.ip   = addr;
+
+	ret = perf_event__process_mmap2(tool, event, &sample, jd->machine);
+	if (ret)
+		return ret;
+
+	ret = jit_inject_event(jd, event);
+	/*
+	 * mark dso as use to generate buildid in the header
+	 */
+	if (!ret)
+		build_id__mark_dso_hit(tool, event, &sample, NULL, jd->machine);
+
+	return ret;
+}
+
+static int jit_repipe_code_move(struct jit_buf_desc *jd, union jr_entry *jr)
+{
+	struct perf_sample sample;
+	union perf_event *event;
+	struct perf_tool *tool = jd->session->tool;
+	char *filename;
+	size_t size;
+	struct stat st;
+	u16 idr_size;
+	int ret;
+	pid_t pid, tid;
+	struct {
+		u32 pid, tid;
+		u64 time;
+	} *id;
+
+	pid = jr->move.pid;
+	tid =  jr->move.tid;
+	idr_size = jd->machine->id_hdr_size;
+
+	/*
+	 * +16 to account for sample_id_all (hack)
+	 */
+	event = calloc(1, sizeof(*event) + 16);
+	if (!event)
+		return -1;
+
+	filename = event->mmap2.filename;
+	size = snprintf(filename, PATH_MAX, "%s/jitted-%d-%"PRIu64,
+	         jd->dir,
+	         pid,
+		 jr->move.code_index);
+
+	size++; /* for \0 */
+
+	if (stat(filename, &st))
+		memset(&st, 0, sizeof(stat));
+
+	size = PERF_ALIGN(size, sizeof(u64));
+
+	event->mmap2.header.type = PERF_RECORD_MMAP2;
+	event->mmap2.header.misc = PERF_RECORD_MISC_USER;
+	event->mmap2.header.size = (sizeof(event->mmap2) -
+			(sizeof(event->mmap2.filename) - size) + idr_size);
+	event->mmap2.pgoff = GEN_ELF_TEXT_OFFSET;
+	event->mmap2.start = jr->move.new_code_addr;
+	event->mmap2.len   = jr->move.code_size;
+	event->mmap2.pid   = pid;
+	event->mmap2.tid   = tid;
+	event->mmap2.ino   = st.st_ino;
+	event->mmap2.maj   = major(st.st_dev);
+	event->mmap2.min   = minor(st.st_dev);
+	event->mmap2.prot  = st.st_mode;
+	event->mmap2.flags = MAP_SHARED;
+	event->mmap2.ino_generation = 1;
+
+	id = (void *)((unsigned long)event + event->mmap.header.size - idr_size);
+	if (jd->sample_type & PERF_SAMPLE_TID) {
+		id->pid  = pid;
+		id->tid  = tid;
+	}
+	if (jd->sample_type & PERF_SAMPLE_TIME)
+		id->time = jr->load.p.timestamp;
+
+	/*
+	 * create pseudo sample to induce dso hit increment
+	 * use first address as sample address
+	 */
+	memset(&sample, 0, sizeof(sample));
+	sample.pid  = pid;
+	sample.tid  = tid;
+	sample.time = id->time;
+	sample.ip   = jr->move.new_code_addr;
+
+	ret = perf_event__process_mmap2(tool, event, &sample, jd->machine);
+	if (ret)
+		return ret;
+
+	ret = jit_inject_event(jd, event);
+	if (!ret)
+		build_id__mark_dso_hit(tool, event, &sample, NULL, jd->machine);
+
+	return ret;
+}
+
+static int jit_repipe_debug_info(struct jit_buf_desc *jd, union jr_entry *jr)
+{
+	void *data;
+	size_t sz;
+
+	if (!(jd && jr))
+		return -1;
+
+	sz  = jr->prefix.total_size - sizeof(jr->info);
+	data = malloc(sz);
+	if (!data)
+		return -1;
+
+	memcpy(data, &jr->info.entries, sz);
+
+	jd->debug_data       = data;
+
+	/*
+	 * we must use nr_entry instead of size here because
+	 * we cannot distinguish actual entry from padding otherwise
+	 */
+	jd->nr_debug_entries = jr->info.nr_entry;
+
+	return 0;
+}
+
+static int
+jit_process_dump(struct jit_buf_desc *jd)
+{
+	union jr_entry *jr;
+	int ret;
+
+	while ((jr = jit_get_next_entry(jd))) {
+		switch(jr->prefix.id) {
+		case JIT_CODE_LOAD:
+			ret = jit_repipe_code_load(jd, jr);
+			break;
+		case JIT_CODE_MOVE:
+			ret = jit_repipe_code_move(jd, jr);
+			break;
+		case JIT_CODE_DEBUG_INFO:
+			ret = jit_repipe_debug_info(jd, jr);
+			break;
+		default:
+			ret = 0;
+			continue;
+		}
+	}
+	return ret;
+}
+
+static int
+jit_inject(struct jit_buf_desc *jd, char *path)
+{
+	int ret;
+
+	if (verbose > 0)
+		fprintf(stderr, "injecting: %s\n", path);
+
+	ret = jit_open(jd, path);
+	if (ret)
+		return -1;
+
+	ret = jit_process_dump(jd);
+
+	jit_close(jd);
+
+	if (verbose > 0)
+		fprintf(stderr, "injected: %s (%d)\n", path, ret);
+
+	return 0;
+}
+
+/*
+ * File must be with pattern .../jit-XXXX.dump
+ * where XXXX is the PID of the process which did the mmap()
+ * as captured in the RECORD_MMAP record
+ */
+static int
+jit_detect(char *mmap_name, pid_t pid)
+ {
+	char *p;
+	char *end = NULL;
+	pid_t pid2;
+
+	if (verbose > 2)
+		fprintf(stderr, "jit marker trying : %s\n", mmap_name);
+	/*
+	 * get file name
+	 */
+	p = strrchr(mmap_name, '/');
+	if (!p)
+		return -1;
+
+	/*
+	 * match prefix
+	 */
+	if (strncmp(p, "/jit-", 5))
+		return -1;
+
+	/*
+	 * skip prefix
+	 */
+	p += 5;
+
+	/*
+	 * must be followed by a pid
+	 */
+	if (!isdigit(*p))
+		return -1;
+
+	pid2 = (int)strtol(p, &end, 10);
+	if (!end)
+		return -1;
+
+	/*
+	 * pid does not match mmap pid
+	 * pid==0 in system-wide mode (synthesized)
+	 */
+	if (pid && pid2 != pid)
+		return -1;
+	/*
+	 * validate suffix
+	 */
+	if (strcmp(end, ".dump"))
+		return -1;
+
+	if (verbose > 0)
+		fprintf(stderr, "jit marker found: %s\n", mmap_name);
+
+	return 0;
+}
+
+int
+jit_process(struct perf_session *session,
+	    struct perf_data_file *output,
+	    struct machine *machine,
+	    char *filename,
+	    pid_t pid,
+	    u64 *nbytes)
+{
+	struct perf_evsel *first;
+	struct jit_buf_desc jd;
+	int ret;
+
+	/*
+	 * first, detect marker mmap (i.e., the jitdump mmap)
+	 */
+	if (jit_detect(filename, pid))
+		return -1;
+
+	memset(&jd, 0, sizeof(jd));
+
+	jd.session = session;
+	jd.output  = output;
+	jd.machine = machine;
+
+	/*
+	 * track sample_type to compute id_all layout
+	 * perf sets the same sample type to all events as of now
+	 */
+	first = perf_evlist__first(session->evlist);
+	jd.sample_type = first->attr.sample_type;
+
+	*nbytes = 0;
+
+	ret = jit_inject(&jd, filename);
+	if (!ret)
+		*nbytes = jd.bytes_written;
+
+	return ret;
+}
+
+/*
+ * jitdump.h: jitted code info encapsulation file format
+ *
+ * Adapted from OProfile GPLv2 support jidump.h:
+ * Copyright 2007 OProfile authors
+ * Jens Wilke
+ * Daniel Hansel
+ * Copyright IBM Corporation 2007
+ */
+#ifndef JITDUMP_H
+#define JITDUMP_H
+
+#include <sys/time.h>
+#include <time.h>
+#include <stdint.h>
+
+/* JiTD */
+#define JITHEADER_MAGIC		0x4A695444
+#define JITHEADER_MAGIC_SW	0x4454694A
+
+#define PADDING_8ALIGNED(x) ((((x) + 7) & 7) ^ 7)
+
+#define JITHEADER_VERSION 1
+
+enum jitdump_flags_bits {
+	JITDUMP_FLAGS_MAX_BIT,
+};
+
+#define JITDUMP_FLAGS_RESERVED (JITDUMP_FLAGS_MAX_BIT < 64 ? \
+				(~((1ULL << JITDUMP_FLAGS_MAX_BIT) - 1)) : 0)
+
+struct jitheader {
+	uint32_t magic;		/* characters "jItD" */
+	uint32_t version;	/* header version */
+	uint32_t total_size;	/* total size of header */
+	uint32_t elf_mach;	/* elf mach target */
+	uint32_t pad1;		/* reserved */
+	uint32_t pid;		/* JIT process id */
+	uint64_t timestamp;	/* timestamp */
+	uint64_t flags;		/* flags */
+};
+
+enum jit_record_type {
+	JIT_CODE_LOAD		= 0,
+        JIT_CODE_MOVE           = 1,
+	JIT_CODE_DEBUG_INFO	= 2,
+	JIT_CODE_CLOSE		= 3,
+
+	JIT_CODE_MAX,
+};
+
+/* record prefix (mandatory in each record) */
+struct jr_prefix {
+	uint32_t id;
+	uint32_t total_size;
+	uint64_t timestamp;
+};
+
+struct jr_code_load {
+	struct jr_prefix p;
+
+	uint32_t pid;
+	uint32_t tid;
+	uint64_t vma;
+	uint64_t code_addr;
+	uint64_t code_size;
+	uint64_t code_index;
+};
+
+struct jr_code_close {
+	struct jr_prefix p;
+};
+
+struct jr_code_move {
+	struct jr_prefix p;
+
+	uint32_t pid;
+	uint32_t tid;
+	uint64_t vma;
+	uint64_t old_code_addr;
+	uint64_t new_code_addr;
+	uint64_t code_size;
+	uint64_t code_index;
+};
+
+struct debug_entry {
+	uint64_t addr;
+	int lineno;	    /* source line number starting at 1 */
+	int discrim;	    /* column discriminator, 0 is default */
+	const char name[0]; /* null terminated filename, \xff\0 if same as previous entry */
+};
+
+struct jr_code_debug_info {
+	struct jr_prefix p;
+
+	uint64_t code_addr;
+	uint64_t nr_entry;
+	struct debug_entry entries[0];
+};
+
+union jr_entry {
+        struct jr_code_debug_info info;
+        struct jr_code_close close;
+        struct jr_code_load load;
+        struct jr_code_move move;
+        struct jr_prefix prefix;
+};
+
+static inline struct debug_entry *
+debug_entry_next(struct debug_entry *ent)
+{
+	void *a = ent + 1;
+	size_t l = strlen(ent->name) + 1;
+	return a + l;
+}
+
+static inline char *
+debug_entry_file(struct debug_entry *ent)
+{
+	void *a = ent + 1;
+	return a;
+}
+
+#endif /* !JITDUMP_H */
+
+

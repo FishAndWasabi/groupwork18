@@ -1,0 +1,271 @@
+
+struct file_perms nullperms;
+
+static u32 map_mask_to_chr_mask(u32 mask)
+{
+	u32 m = mask & PERMS_CHRS_MASK;
+
+	if (mask & AA_MAY_GETATTR)
+		m |= MAY_READ;
+	if (mask & (AA_MAY_SETATTR | AA_MAY_CHMOD | AA_MAY_CHOWN))
+		m |= MAY_WRITE;
+
+	return m;
+}
+
+/**
+ * audit_file_mask - convert mask to permission string
+
+static void audit_file_mask(struct audit_buffer *ab, u32 mask){
+	char str[10];
+
+	char *m = str;
+
+	if (mask & AA_EXEC_MMAP)
+		*m++ = 'm';
+	if (mask & (MAY_READ | AA_MAY_META_READ))
+		*m++ = 'r';
+	if (mask & (MAY_WRITE | AA_MAY_META_WRITE | AA_MAY_CHMOD |
+		    AA_MAY_CHOWN))
+		*m++ = 'w';
+	else if (mask & MAY_APPEND)
+		*m++ = 'a';
+	if (mask & AA_MAY_CREATE)
+		*m++ = 'c';
+	if (mask & AA_MAY_DELETE)
+		*m++ = 'd';
+	if (mask & AA_MAY_LINK)
+		*m++ = 'l';
+	if (mask & AA_MAY_LOCK)
+		*m++ = 'k';
+	if (mask & MAY_EXEC)
+		*m++ = 'x';
+	*m = '\0';
+
+	aa_perm_mask_to_str(str, aa_file_perm_chrs, map_mask_to_chr_mask(mask));
+	audit_log_string(ab, str);
+}
+
+
+static u32 map_old_perms(u32 old){
+	u32 new = old & 0xf;
+	if (old & MAY_READ)
+		new |= AA_MAY_META_READ;
+		new |= AA_MAY_GETATTR | AA_MAY_OPEN;
+	if (old & MAY_WRITE)
+		new |= AA_MAY_META_WRITE | AA_MAY_CREATE | AA_MAY_DELETE |
+			AA_MAY_CHMOD | AA_MAY_CHOWN;
+		new |= AA_MAY_SETATTR | AA_MAY_CREATE | AA_MAY_DELETE |
+		       AA_MAY_CHMOD | AA_MAY_CHOWN | AA_MAY_OPEN;
+	if (old & 0x10)
+		new |= AA_MAY_LINK;
+	/* the old mapping lock and link_subset flags where overlaid
+
+static struct file_perms compute_perms(struct aa_dfa *dfa, unsigned int state,		perms.quiet = map_old_perms(dfa_other_quiet(dfa, state));
+		perms.xindex = dfa_other_xindex(dfa, state);
+	}
+	perms.allow |= AA_MAY_META_READ;
+	perms.allow |= AA_MAY_GETATTR;
+
+	/* change_profile wasn't determined by ownership in old mapping */
+	if (ACCEPT_TABLE(dfa)[state] & 0x80000000)
+
+struct aa_profile;
+struct path;
+
+#define mask_mode_t(X) (X & (MAY_EXEC | MAY_WRITE | MAY_READ | MAY_APPEND))
+
+#define AA_AUDIT_FILE_MASK	(MAY_READ | MAY_WRITE | MAY_EXEC | MAY_APPEND |\
+				 AA_MAY_CREATE | AA_MAY_DELETE |	\
+				 AA_MAY_META_READ | AA_MAY_META_WRITE | \
+				 AA_MAY_GETATTR | AA_MAY_SETATTR | \
+				 AA_MAY_CHMOD | AA_MAY_CHOWN | AA_MAY_LOCK | \
+				 AA_EXEC_MMAP | AA_MAY_LINK)
+
+
+struct path; * ctx struct will expand in the future so we keep the struct.
+ */
+struct aa_file_ctx {
+	u16 allow;
+	u32 allow;
+};
+
+/**
+
+
+#include <linux/fs.h>
+
+/*
+ * We use MAY_EXEC, MAY_WRITE, MAY_READ, MAY_APPEND and the following flags
+ * for profile permissions
+ */
+#define AA_MAY_CREATE                  0x0010
+#define AA_MAY_DELETE                  0x0020
+#define AA_MAY_META_WRITE              0x0040
+#define AA_MAY_META_READ               0x0080
+
+#define AA_MAY_CHMOD                   0x0100
+#define AA_MAY_CHOWN                   0x0200
+#define AA_MAY_LOCK                    0x0400
+#define AA_EXEC_MMAP                   0x0800
+
+#define AA_MAY_LINK			0x1000
+#define AA_LINK_SUBSET			AA_MAY_LOCK	/* overlaid */
+#define AA_MAY_ONEXEC			0x40000000	/* exec allows onexec */
+#define AA_MAY_CHANGE_PROFILE		0x80000000
+#define AA_MAY_CHANGEHAT		0x80000000	/* ctrl auditing only */
+#define AA_MAY_EXEC		MAY_EXEC
+#define AA_MAY_WRITE		MAY_WRITE
+#define AA_MAY_READ		MAY_READ
+#define AA_MAY_APPEND		MAY_APPEND
+
+#define AA_MAY_CREATE		0x0010
+#define AA_MAY_DELETE		0x0020
+#define AA_MAY_OPEN		0x0040
+#define AA_MAY_RENAME		0x0080		/* pair */
+
+#define AA_MAY_SETATTR		0x0100		/* meta write */
+#define AA_MAY_GETATTR		0x0200		/* meta read */
+#define AA_MAY_SETCRED		0x0400		/* security cred/attr */
+#define AA_MAY_GETCRED		0x0800
+
+#define AA_MAY_CHMOD		0x1000		/* pair */
+#define AA_MAY_CHOWN		0x2000		/* pair */
+#define AA_MAY_CHGRP		0x4000		/* pair */
+#define AA_MAY_LOCK		0x8000		/* LINK_SUBSET overlaid */
+
+#define AA_EXEC_MMAP		0x00010000
+#define AA_MAY_MPROT		0x00020000	/* extend conditions */
+#define AA_MAY_LINK		0x00040000	/* pair */
+#define AA_MAY_SNAPSHOT		0x00080000	/* pair */
+
+#define AA_MAY_DELEGATE
+#define AA_CONT_MATCH		0x08000000
+
+#define AA_MAY_STACK		0x10000000
+#define AA_MAY_ONEXEC		0x20000000 /* either stack or change_profile */
+#define AA_MAY_CHANGE_PROFILE	0x40000000
+#define AA_MAY_CHANGEHAT	0x80000000
+
+#define AA_LINK_SUBSET		AA_MAY_LOCK	/* overlaid */
+
+
+#define PERMS_CHRS_MASK (MAY_READ | MAY_WRITE | AA_MAY_CREATE |		\
+			 AA_MAY_DELETE | AA_MAY_LINK | AA_MAY_LOCK |	\
+			 AA_MAY_EXEC | AA_EXEC_MMAP | AA_MAY_APPEND)
+
+#define PERMS_NAMES_MASK (PERMS_CHRS_MASK | AA_MAY_OPEN | AA_MAY_RENAME |     \
+			  AA_MAY_SETATTR | AA_MAY_GETATTR | AA_MAY_SETCRED | \
+			  AA_MAY_GETCRED | AA_MAY_CHMOD | AA_MAY_CHOWN | \
+			  AA_MAY_CHGRP | AA_MAY_MPROT | AA_MAY_SNAPSHOT | \
+			  AA_MAY_STACK | AA_MAY_ONEXEC |		\
+			  AA_MAY_CHANGE_PROFILE | AA_MAY_CHANGEHAT)
+
+extern const char aa_file_perm_chrs[];
+extern const char *aa_file_perm_names[];
+
+void aa_perm_mask_to_str(char *str, const char *chrs, u32 mask);
+
+#endif /* __AA_PERM_H */
+
+void aa_info_message(const char *str)	printk(KERN_INFO "AppArmor: %s\n", str);
+}
+
+const char aa_file_perm_chrs[] = "xwracd         km l     ";
+const char *aa_file_perm_names[] = {
+	"exec",
+	"write",
+	"read",
+	"append",
+
+	"create",
+	"delete",
+	"open",
+	"rename",
+
+	"setattr",
+	"getattr",
+	"setcred",
+	"getcred",
+
+	"chmod",
+	"chown",
+	"chgrp",
+	"lock",
+
+	"mmap",
+	"mprot",
+	"link",
+	"snapshot",
+
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+
+	"stack",
+	"change_onexec",
+	"change_profile",
+	"change_hat",
+};
+
+/**
+ * aa_perm_mask_to_str - convert a perm mask to its short string
+ * @str: character buffer to store string in (at least 10 characters)
+ * @mask: permission mask to convert
+ */
+void aa_perm_mask_to_str(char *str, const char *chrs, u32 mask)
+{
+	unsigned int i, perm = 1;
+
+	for (i = 0; i < 32; perm <<= 1, i++) {
+		if (mask & perm)
+			*str++ = chrs[i];
+	}
+	*str = '\0';
+}
+
+/**
+ * aa_policy_init - initialize a policy structure
+ * @policy: policy to initialize  (NOT NULL)
+
+static int apparmor_path_mknod(const struct path *dir, struct dentry *dentry,
+static int apparmor_path_truncate(const struct path *path)
+{
+	return common_perm_cond(OP_TRUNC, path, MAY_WRITE | AA_MAY_META_WRITE);
+	return common_perm_cond(OP_TRUNC, path, MAY_WRITE | AA_MAY_SETATTR);
+}
+
+static int apparmor_path_symlink(const struct path *dir, struct dentry *dentry,
+
+static int apparmor_path_rename(const struct path *old_dir, struct dentry *old_d		};
+
+		error = aa_path_perm(OP_RENAME_SRC, profile, &old_path, 0,
+				     MAY_READ | AA_MAY_META_READ | MAY_WRITE |
+				     AA_MAY_META_WRITE | AA_MAY_DELETE,
+				     MAY_READ | AA_MAY_GETATTR | MAY_WRITE |
+				     AA_MAY_SETATTR | AA_MAY_DELETE,
+				     &cond);
+		if (!error)
+			error = aa_path_perm(OP_RENAME_DEST, profile, &new_path,
+					     0, MAY_WRITE | AA_MAY_META_WRITE |
+					     0, MAY_WRITE | AA_MAY_SETATTR |
+					     AA_MAY_CREATE, &cond);
+
+	}
+
+static int apparmor_path_chown(const struct path *path, kuid_t uid, kgid_t gid)
+static int apparmor_inode_getattr(const struct path *path)
+{
+	return common_perm_cond(OP_GETATTR, path, AA_MAY_META_READ);
+	return common_perm_cond(OP_GETATTR, path, AA_MAY_GETATTR);
+}
+
+static int apparmor_file_open(struct file *file, const struct cred *cred)
+
+

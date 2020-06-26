@@ -1,0 +1,140 @@
+static int i915_drm_resume_early(struct drm_device *dev)
+	intel_uncore_resume_early(dev_priv);
+
+	if (IS_GEN9_LP(dev_priv)) {
+	if (INTEL_GEN(dev_priv) >= 11 || IS_GEN9_LP(dev_priv)) {
+		gen9_sanitize_dc_state(dev_priv);
+		bxt_disable_dc9(dev_priv);
+	} else if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
+
+static int intel_runtime_suspend(struct device *kdev)	intel_uncore_suspend(dev_priv);
+
+	ret = 0;
+	if (IS_GEN9_LP(dev_priv)) {
+	if (INTEL_GEN(dev_priv) >= 11) {
+		icl_display_core_uninit(dev_priv);
+		bxt_enable_dc9(dev_priv);
+	} else if (IS_GEN9_LP(dev_priv)) {
+		bxt_display_core_uninit(dev_priv);
+		bxt_enable_dc9(dev_priv);
+	} else if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
+
+static int intel_runtime_resume(struct device *kdev)	if (intel_uncore_unclaimed_mmio(dev_priv))
+		DRM_DEBUG_DRIVER("Unclaimed access during suspend, bios?\n");
+
+	if (IS_GEN9_LP(dev_priv)) {
+	if (INTEL_GEN(dev_priv) >= 11) {
+		bxt_disable_dc9(dev_priv);
+		icl_display_core_init(dev_priv, true);
+		if (dev_priv->csr.dmc_payload) {
+			if (dev_priv->csr.allowed_dc_mask &
+			    DC_STATE_EN_UPTO_DC6)
+				skl_enable_dc6(dev_priv);
+			else if (dev_priv->csr.allowed_dc_mask &
+				 DC_STATE_EN_UPTO_DC5)
+				gen9_enable_dc5(dev_priv);
+		}
+	} else if (IS_GEN9_LP(dev_priv)) {
+		bxt_disable_dc9(dev_priv);
+		bxt_display_core_init(dev_priv, true);
+		if (dev_priv->csr.dmc_payload &&
+
+void bxt_enable_dc9(struct drm_i915_private *dev_priv);void bxt_disable_dc9(struct drm_i915_private *dev_priv);
+void gen9_enable_dc5(struct drm_i915_private *dev_priv);
+unsigned int skl_cdclk_get_vco(unsigned int freq);
+void skl_enable_dc6(struct drm_i915_private *dev_priv);
+void intel_dp_get_m_n(struct intel_crtc *crtc,
+		      struct intel_crtc_state *pipe_config);
+void intel_dp_set_m_n(const struct intel_crtc_state *crtc_state,
+
+int intel_power_domains_init(struct drm_i915_private *);void intel_power_domains_cleanup(struct drm_i915_private *dev_priv);
+void intel_power_domains_init_hw(struct drm_i915_private *dev_priv, bool resume);
+void intel_power_domains_fini_hw(struct drm_i915_private *dev_priv);
+void icl_display_core_init(struct drm_i915_private *dev_priv, bool resume);
+void icl_display_core_uninit(struct drm_i915_private *dev_priv);
+void intel_power_domains_enable(struct drm_i915_private *dev_priv);
+void intel_power_domains_disable(struct drm_i915_private *dev_priv);
+
+
+static u32 gen9_dc_mask(struct drm_i915_private *dev_priv)	u32 mask;
+
+	mask = DC_STATE_EN_UPTO_DC5;
+	if (IS_GEN9_LP(dev_priv))
+	if (INTEL_GEN(dev_priv) >= 11)
+		mask |= DC_STATE_EN_UPTO_DC6 | DC_STATE_EN_DC9;
+	else if (IS_GEN9_LP(dev_priv))
+		mask |= DC_STATE_EN_DC9;
+	else
+		mask |= DC_STATE_EN_UPTO_DC6;
+
+void bxt_enable_dc9(struct drm_i915_private *dev_priv)	assert_can_enable_dc9(dev_priv);
+
+	DRM_DEBUG_KMS("Enabling DC9\n");
+
+	intel_power_sequencer_reset(dev_priv);
+	/*
+	 * Power sequencer reset is not needed on
+	 * platforms with South Display Engine on PCH,
+	 * because PPS registers are always on.
+	 */
+	if (!HAS_PCH_SPLIT(dev_priv))
+		intel_power_sequencer_reset(dev_priv);
+	gen9_set_dc_state(dev_priv, DC_STATE_EN_DC9);
+}
+
+
+static void assert_can_enable_dc6(struct drm_i915_private *dev_priv)	assert_csr_loaded(dev_priv);
+}
+
+static void skl_enable_dc6(struct drm_i915_private *dev_priv)
+void skl_enable_dc6(struct drm_i915_private *dev_priv)
+{
+	assert_can_enable_dc6(dev_priv);
+
+
+static uint32_t get_allowed_dc_mask(const struct drm_i915_private *dev_priv,	int requested_dc;
+	int max_dc;
+
+	if (IS_GEN9_BC(dev_priv) || INTEL_INFO(dev_priv)->gen >= 10) {
+	if (INTEL_GEN(dev_priv) >= 11) {
+		max_dc = 2;
+		mask = 0;
+	} else if (IS_GEN9_LP(dev_priv)) {
+		max_dc = 1;
+		/*
+		 * DC9 has a separate HW flow from the rest of the DC states,
+		 * not depending on the DMC firmware. It's needed by system
+		 * suspend/resume, so allow it unconditionally.
+		 */
+		mask = DC_STATE_EN_DC9;
+	} else if (IS_GEN10(dev_priv) || IS_GEN9_BC(dev_priv)) {
+		max_dc = 2;
+		mask = 0;
+	} else if (IS_GEN9_LP(dev_priv)) {
+		max_dc = 1;
+		mask = DC_STATE_EN_DC9;
+	} else {
+		max_dc = 0;
+		mask = 0;
+
+static void cnl_display_core_uninit(struct drm_i915_private *dev_priv)	I915_WRITE(CHICKEN_MISC_2, val);
+}
+
+static void icl_display_core_init(struct drm_i915_private *dev_priv,
+				  bool resume)
+void icl_display_core_init(struct drm_i915_private *dev_priv,
+			   bool resume)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	struct i915_power_well *well;
+
+static void icl_display_core_init(struct drm_i915_private *dev_priv,		intel_csr_load_program(dev_priv);
+}
+
+static void icl_display_core_uninit(struct drm_i915_private *dev_priv)
+void icl_display_core_uninit(struct drm_i915_private *dev_priv)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	struct i915_power_well *well;
+
+

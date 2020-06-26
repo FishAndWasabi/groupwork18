@@ -1,0 +1,72 @@
+config INFINIBAND_SRPT
+	tristate "InfiniBand SCSI RDMA Protocol target support"
+	depends on INFINIBAND && INFINIBAND_ADDR_TRANS && TARGET_CORE
+	depends on INFINIBAND_ADDR_TRANS && TARGET_CORE
+	---help---
+
+	  Support for the SCSI RDMA Protocol (SRP) Target driver. The
+
+config NVME_FABRICS
+config NVME_RDMA
+	tristate "NVM Express over Fabrics RDMA host driver"
+	depends on INFINIBAND && INFINIBAND_ADDR_TRANS && BLOCK
+	depends on INFINIBAND_ADDR_TRANS && BLOCK
+	select NVME_CORE
+	select NVME_FABRICS
+	select SG_POOL
+
+config NVME_TARGET_LOOP
+config NVME_TARGET_RDMA
+	tristate "NVMe over Fabrics RDMA target support"
+	depends on INFINIBAND && INFINIBAND_ADDR_TRANS
+	depends on INFINIBAND_ADDR_TRANS
+	depends on NVME_TARGET
+	select SGL_ALLOC
+	help
+
+config LNET_SELFTEST
+config LNET_XPRT_IB
+	tristate "LNET infiniband support"
+	depends on LNET && PCI && INFINIBAND && INFINIBAND_ADDR_TRANS
+	depends on LNET && PCI && INFINIBAND_ADDR_TRANS
+	default LNET && INFINIBAND
+	help
+	  This option allows the LNET users to use infiniband as an
+
+config CIFS_SMB311
+config CIFS_SMB_DIRECT
+	bool "SMB Direct support (Experimental)"
+	depends on CIFS=m && INFINIBAND && INFINIBAND_ADDR_TRANS || CIFS=y && INFINIBAND=y && INFINIBAND_ADDR_TRANS=y
+	depends on CIFS=m && INFINIBAND_ADDR_TRANS || CIFS=y && INFINIBAND_ADDR_TRANS=y
+	help
+	  Enables SMB Direct experimental support for SMB 3.0, 3.02 and 3.1.1.
+	  SMB Direct allows transferring SMB packets over RDMA. If unsure,
+
+config NET_9P_XEN
+
+config NET_9P_RDMA
+	depends on INET && INFINIBAND && INFINIBAND_ADDR_TRANS
+	depends on INET && INFINIBAND_ADDR_TRANS
+	tristate "9P RDMA Transport (Experimental)"
+	help
+	  This builds support for an RDMA transport.
+
+config RDS
+config RDS_RDMA
+	tristate "RDS over Infiniband"
+	depends on RDS && INFINIBAND && INFINIBAND_ADDR_TRANS
+	depends on RDS && INFINIBAND_ADDR_TRANS
+	---help---
+	  Allow RDS to use Infiniband as a transport.
+	  This transport supports RDMA operations.
+
+config SUNRPC_DEBUG
+config SUNRPC_XPRT_RDMA
+	tristate "RPC-over-RDMA transport"
+	depends on SUNRPC && INFINIBAND && INFINIBAND_ADDR_TRANS
+	depends on SUNRPC && INFINIBAND_ADDR_TRANS
+	default SUNRPC && INFINIBAND
+	select SG_POOL
+	help
+
+
