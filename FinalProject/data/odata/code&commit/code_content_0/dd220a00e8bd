@@ -1,0 +1,584 @@
+struct evergreen_cs_track {	u32			cb_shader_mask;
+	u32			vgt_strmout_config;
+	u32			vgt_strmout_buffer_config;
+	struct radeon_bo	*vgt_strmout_bo[4];
+	u64			vgt_strmout_bo_mc[4];
+	u32			vgt_strmout_bo_offset[4];
+	u32			vgt_strmout_size[4];
+	u32			db_depth_control;
+	u32			db_depth_view;
+	u32			db_depth_size;
+
+static void evergreen_cs_track_init(struct evergreen_cs_track *track)	track->db_s_write_offset = 0xFFFFFFFF;
+	track->db_s_read_bo = NULL;
+	track->db_s_write_bo = NULL;
+
+	for (i = 0; i < 4; i++) {
+		track->vgt_strmout_size[i] = 0;
+		track->vgt_strmout_bo[i] = NULL;
+		track->vgt_strmout_bo_offset[i] = 0xFFFFFFFF;
+		track->vgt_strmout_bo_mc[i] = 0xFFFFFFFF;
+	}
+}
+
+static int evergreen_cs_track_check(struct radeon_cs_parser *p)
+{
+	struct evergreen_cs_track *track = p->track;
+	int i, j;
+
+	/* we don't support stream out buffer yet */
+	if (track->vgt_strmout_config || track->vgt_strmout_buffer_config) {
+		dev_warn(p->dev, "this kernel doesn't support SMX output buffer\n");
+		return -EINVAL;
+	/* check streamout */
+	for (i = 0; i < 4; i++) {
+		if (track->vgt_strmout_config & (1 << i)) {
+			for (j = 0; j < 4; j++) {
+				if ((track->vgt_strmout_buffer_config >> (i * 4)) & (1 << j)) {
+					if (track->vgt_strmout_bo[j]) {
+						u64 offset = (u64)track->vgt_strmout_bo_offset[j] +
+							(u64)track->vgt_strmout_size[j];
+						if (offset > radeon_bo_size(track->vgt_strmout_bo[i])) {
+							DRM_ERROR("streamout %d bo too small: 0x%llx, 0x%lx\n",
+								  j, offset,
+								  radeon_bo_size(track->vgt_strmout_bo[j]));
+							return -EINVAL;
+						}
+					} else {
+						dev_warn(p->dev, "No buffer for streamout %d\n", j);
+						return -EINVAL;
+					}
+				}
+			}
+		}
+	}
+
+	/* XXX fill in */
+
+static int evergreen_cs_check_reg(struct radeon_cs_parser *p, u32 reg, u32 idx)	case VGT_STRMOUT_BUFFER_CONFIG:
+		track->vgt_strmout_buffer_config = radeon_get_ib_value(p, idx);
+		break;
+	case VGT_STRMOUT_BUFFER_BASE_0:
+	case VGT_STRMOUT_BUFFER_BASE_1:
+	case VGT_STRMOUT_BUFFER_BASE_2:
+	case VGT_STRMOUT_BUFFER_BASE_3:
+		r = evergreen_cs_packet_next_reloc(p, &reloc);
+		if (r) {
+			dev_warn(p->dev, "bad SET_CONTEXT_REG "
+					"0x%04X\n", reg);
+			return -EINVAL;
+		}
+		tmp = (reg - VGT_STRMOUT_BUFFER_BASE_0) / 16;
+		track->vgt_strmout_bo_offset[tmp] = radeon_get_ib_value(p, idx) << 8;
+		ib[idx] += (u32)((reloc->lobj.gpu_offset >> 8) & 0xffffffff);
+		track->vgt_strmout_bo[tmp] = reloc->robj;
+		track->vgt_strmout_bo_mc[tmp] = reloc->lobj.gpu_offset;
+		break;
+	case VGT_STRMOUT_BUFFER_SIZE_0:
+	case VGT_STRMOUT_BUFFER_SIZE_1:
+	case VGT_STRMOUT_BUFFER_SIZE_2:
+	case VGT_STRMOUT_BUFFER_SIZE_3:
+		tmp = (reg - VGT_STRMOUT_BUFFER_SIZE_0) / 16;
+		/* size in register is DWs, convert to bytes */
+		track->vgt_strmout_size[tmp] = radeon_get_ib_value(p, idx) * 4;
+		break;
+	case CP_COHER_BASE:
+		r = evergreen_cs_packet_next_reloc(p, &reloc);
+		if (r) {
+			dev_warn(p->dev, "missing reloc for CP_COHER_BASE "
+					"0x%04X\n", reg);
+			return -EINVAL;
+		}
+		ib[idx] += (u32)((reloc->lobj.gpu_offset >> 8) & 0xffffffff);
+	case CB_TARGET_MASK:
+		track->cb_target_mask = radeon_get_ib_value(p, idx);
+		break;
+
+static int evergreen_check_texture_resource(struct radeon_cs_parser *p,  u32 idx	return 0;
+}
+
+static bool evergreen_is_safe_reg(struct radeon_cs_parser *p, u32 reg, u32 idx)
+{
+	u32 last_reg, m, i;
+
+	if (p->rdev->family >= CHIP_CAYMAN)
+		last_reg = ARRAY_SIZE(cayman_reg_safe_bm);
+	else
+		last_reg = ARRAY_SIZE(evergreen_reg_safe_bm);
+
+	i = (reg >> 7);
+	if (i >= last_reg) {
+		dev_warn(p->dev, "forbidden register 0x%08x at %d\n", reg, idx);
+		return false;
+	}
+	m = 1 << ((reg >> 2) & 31);
+	if (p->rdev->family >= CHIP_CAYMAN) {
+		if (!(cayman_reg_safe_bm[i] & m))
+			return true;
+	} else {
+		if (!(evergreen_reg_safe_bm[i] & m))
+			return true;
+	}
+	dev_warn(p->dev, "forbidden register 0x%08x at %d\n", reg, idx);
+	return false;
+}
+
+static int evergreen_packet3_check(struct radeon_cs_parser *p,
+				   struct radeon_cs_packet *pkt)
+{
+
+static int evergreen_packet3_check(struct radeon_cs_parser *p,			return -EINVAL;
+		}
+		break;
+	case PACKET3_STRMOUT_BUFFER_UPDATE:
+		if (pkt->count != 4) {
+			DRM_ERROR("bad STRMOUT_BUFFER_UPDATE (invalid count)\n");
+			return -EINVAL;
+		}
+		/* Updating memory at DST_ADDRESS. */
+		if (idx_value & 0x1) {
+			u64 offset;
+			r = evergreen_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE (missing dst reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+1);
+			offset += ((u64)(radeon_get_ib_value(p, idx+2) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE dst bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+1] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+2] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		}
+		/* Reading data from SRC_ADDRESS. */
+		if (((idx_value >> 1) & 0x3) == 2) {
+			u64 offset;
+			r = evergreen_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE (missing src reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+3);
+			offset += ((u64)(radeon_get_ib_value(p, idx+4) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE src bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+3] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+4] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		}
+		break;
+	case PACKET3_COPY_DW:
+		if (pkt->count != 4) {
+			DRM_ERROR("bad COPY_DW (invalid count)\n");
+			return -EINVAL;
+		}
+		if (idx_value & 0x1) {
+			u64 offset;
+			/* SRC is memory. */
+			r = evergreen_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad COPY_DW (missing src reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+1);
+			offset += ((u64)(radeon_get_ib_value(p, idx+2) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad COPY_DW src bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+1] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+2] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		} else {
+			/* SRC is a reg. */
+			reg = radeon_get_ib_value(p, idx+1) << 2;
+			if (!evergreen_is_safe_reg(p, reg, idx+1))
+				return -EINVAL;
+		}
+		if (idx_value & 0x2) {
+			u64 offset;
+			/* DST is memory. */
+			r = evergreen_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad COPY_DW (missing dst reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+3);
+			offset += ((u64)(radeon_get_ib_value(p, idx+4) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad COPY_DW dst bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+3] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+4] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		} else {
+			/* DST is a reg. */
+			reg = radeon_get_ib_value(p, idx+3) << 2;
+			if (!evergreen_is_safe_reg(p, reg, idx+3))
+				return -EINVAL;
+		}
+		break;
+	case PACKET3_NOP:
+		break;
+	default:
+
+
+#define	CONFIG_MEMSIZE					0x5428
+
+#define	CP_COHER_BASE					0x85F8
+#define CP_ME_CNTL					0x86D8
+#define		CP_ME_HALT					(1 << 28)
+#define		CP_PFP_HALT					(1 << 26)
+
+#define SQ_PGM_START_HS					0x288b8
+#define SQ_PGM_START_LS					0x288d0
+
+#define	VGT_STRMOUT_BUFFER_BASE_0			0x28AD8
+#define	VGT_STRMOUT_BUFFER_BASE_1			0x28AE8
+#define	VGT_STRMOUT_BUFFER_BASE_2			0x28AF8
+#define	VGT_STRMOUT_BUFFER_BASE_3			0x28B08
+#define VGT_STRMOUT_BUFFER_SIZE_0			0x28AD0
+#define VGT_STRMOUT_BUFFER_SIZE_1			0x28AE0
+#define VGT_STRMOUT_BUFFER_SIZE_2			0x28AF0
+#define VGT_STRMOUT_BUFFER_SIZE_3			0x28B00
+#define VGT_STRMOUT_CONFIG				0x28b94
+#define VGT_STRMOUT_BUFFER_CONFIG			0x28b98
+
+
+struct r600_cs_track {	u32			cb_color_size[8];
+	u32			vgt_strmout_en;
+	u32			vgt_strmout_buffer_en;
+	struct radeon_bo	*vgt_strmout_bo[4];
+	u64			vgt_strmout_bo_mc[4];
+	u32			vgt_strmout_bo_offset[4];
+	u32			vgt_strmout_size[4];
+	u32			db_depth_control;
+	u32			db_depth_info;
+	u32			db_depth_size_idx;
+
+static void r600_cs_track_init(struct r600_cs_track *track)	track->db_depth_size = 0xFFFFFFFF;
+	track->db_depth_size_idx = 0;
+	track->db_depth_control = 0xFFFFFFFF;
+
+	for (i = 0; i < 4; i++) {
+		track->vgt_strmout_size[i] = 0;
+		track->vgt_strmout_bo[i] = NULL;
+		track->vgt_strmout_bo_offset[i] = 0xFFFFFFFF;
+		track->vgt_strmout_bo_mc[i] = 0xFFFFFFFF;
+	}
+}
+
+static int r600_cs_track_validate_cb(struct radeon_cs_parser *p, int i)
+
+static int r600_cs_track_check(struct radeon_cs_parser *p)	/* on legacy kernel we don't perform advanced check */
+	if (p->rdev == NULL)
+		return 0;
+	/* we don't support out buffer yet */
+	if (track->vgt_strmout_en || track->vgt_strmout_buffer_en) {
+		dev_warn(p->dev, "this kernel doesn't support SMX output buffer\n");
+		return -EINVAL;
+
+	/* check streamout */
+	if (track->vgt_strmout_en) {
+		for (i = 0; i < 4; i++) {
+			if (track->vgt_strmout_buffer_en & (1 << i)) {
+				if (track->vgt_strmout_bo[i]) {
+					u64 offset = (u64)track->vgt_strmout_bo_offset[i] +
+						(u64)track->vgt_strmout_size[i];
+					if (offset > radeon_bo_size(track->vgt_strmout_bo[i])) {
+						DRM_ERROR("streamout %d bo too small: 0x%llx, 0x%lx\n",
+							  i, offset,
+							  radeon_bo_size(track->vgt_strmout_bo[i]));
+						return -EINVAL;
+					}
+				} else {
+					dev_warn(p->dev, "No buffer for streamout %d\n", i);
+					return -EINVAL;
+				}
+			}
+		}
+	}
+
+	/* check that we have a cb for each enabled target, we don't check
+	 * shader_mask because it seems mesa isn't always setting it :(
+	 */
+
+static int r600_cs_check_reg(struct radeon_cs_parser *p, u32 reg, u32 idx)	case R_028B20_VGT_STRMOUT_BUFFER_EN:
+		track->vgt_strmout_buffer_en = radeon_get_ib_value(p, idx);
+		break;
+	case VGT_STRMOUT_BUFFER_BASE_0:
+	case VGT_STRMOUT_BUFFER_BASE_1:
+	case VGT_STRMOUT_BUFFER_BASE_2:
+	case VGT_STRMOUT_BUFFER_BASE_3:
+		r = r600_cs_packet_next_reloc(p, &reloc);
+		if (r) {
+			dev_warn(p->dev, "bad SET_CONTEXT_REG "
+					"0x%04X\n", reg);
+			return -EINVAL;
+		}
+		tmp = (reg - VGT_STRMOUT_BUFFER_BASE_0) / 16;
+		track->vgt_strmout_bo_offset[tmp] = radeon_get_ib_value(p, idx) << 8;
+		ib[idx] += (u32)((reloc->lobj.gpu_offset >> 8) & 0xffffffff);
+		track->vgt_strmout_bo[tmp] = reloc->robj;
+		track->vgt_strmout_bo_mc[tmp] = reloc->lobj.gpu_offset;
+		break;
+	case VGT_STRMOUT_BUFFER_SIZE_0:
+	case VGT_STRMOUT_BUFFER_SIZE_1:
+	case VGT_STRMOUT_BUFFER_SIZE_2:
+	case VGT_STRMOUT_BUFFER_SIZE_3:
+		tmp = (reg - VGT_STRMOUT_BUFFER_SIZE_0) / 16;
+		/* size in register is DWs, convert to bytes */
+		track->vgt_strmout_size[tmp] = radeon_get_ib_value(p, idx) * 4;
+		break;
+	case CP_COHER_BASE:
+		r = r600_cs_packet_next_reloc(p, &reloc);
+		if (r) {
+			dev_warn(p->dev, "missing reloc for CP_COHER_BASE "
+					"0x%04X\n", reg);
+			return -EINVAL;
+		}
+		ib[idx] += (u32)((reloc->lobj.gpu_offset >> 8) & 0xffffffff);
+		break;
+	case R_028238_CB_TARGET_MASK:
+		track->cb_target_mask = radeon_get_ib_value(p, idx);
+		break;
+
+static int r600_check_texture_resource(struct radeon_cs_parser *p,  u32 idx,	return 0;
+}
+
+static bool r600_is_safe_reg(struct radeon_cs_parser *p, u32 reg, u32 idx)
+{
+	u32 m, i;
+
+	i = (reg >> 7);
+	if (i >= ARRAY_SIZE(r600_reg_safe_bm)) {
+		dev_warn(p->dev, "forbidden register 0x%08x at %d\n", reg, idx);
+		return false;
+	}
+	m = 1 << ((reg >> 2) & 31);
+	if (!(r600_reg_safe_bm[i] & m))
+		return true;
+	dev_warn(p->dev, "forbidden register 0x%08x at %d\n", reg, idx);
+	return false;
+}
+
+static int r600_packet3_check(struct radeon_cs_parser *p,
+				struct radeon_cs_packet *pkt)
+{
+
+static int r600_packet3_check(struct radeon_cs_parser *p,			return -EINVAL;
+		}
+		break;
+	case PACKET3_STRMOUT_BUFFER_UPDATE:
+		if (pkt->count != 4) {
+			DRM_ERROR("bad STRMOUT_BUFFER_UPDATE (invalid count)\n");
+			return -EINVAL;
+		}
+		/* Updating memory at DST_ADDRESS. */
+		if (idx_value & 0x1) {
+			u64 offset;
+			r = r600_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE (missing dst reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+1);
+			offset += ((u64)(radeon_get_ib_value(p, idx+2) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE dst bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+1] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+2] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		}
+		/* Reading data from SRC_ADDRESS. */
+		if (((idx_value >> 1) & 0x3) == 2) {
+			u64 offset;
+			r = r600_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE (missing src reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+3);
+			offset += ((u64)(radeon_get_ib_value(p, idx+4) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad STRMOUT_BUFFER_UPDATE src bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+3] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+4] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		}
+		break;
+	case PACKET3_COPY_DW:
+		if (pkt->count != 4) {
+			DRM_ERROR("bad COPY_DW (invalid count)\n");
+			return -EINVAL;
+		}
+		if (idx_value & 0x1) {
+			u64 offset;
+			/* SRC is memory. */
+			r = r600_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad COPY_DW (missing src reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+1);
+			offset += ((u64)(radeon_get_ib_value(p, idx+2) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad COPY_DW src bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+1] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+2] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		} else {
+			/* SRC is a reg. */
+			reg = radeon_get_ib_value(p, idx+1) << 2;
+			if (!r600_is_safe_reg(p, reg, idx+1))
+				return -EINVAL;
+		}
+		if (idx_value & 0x2) {
+			u64 offset;
+			/* DST is memory. */
+			r = r600_cs_packet_next_reloc(p, &reloc);
+			if (r) {
+				DRM_ERROR("bad COPY_DW (missing dst reloc)\n");
+				return -EINVAL;
+			}
+			offset = radeon_get_ib_value(p, idx+3);
+			offset += ((u64)(radeon_get_ib_value(p, idx+4) & 0xff)) << 32;
+			if ((offset + 4) > radeon_bo_size(reloc->robj)) {
+				DRM_ERROR("bad COPY_DW dst bo too small: 0x%llx, 0x%lx\n",
+					  offset + 4, radeon_bo_size(reloc->robj));
+				return -EINVAL;
+			}
+			ib[idx+3] += (u32)(reloc->lobj.gpu_offset & 0xffffffff);
+			ib[idx+4] += upper_32_bits(reloc->lobj.gpu_offset) & 0xff;
+		} else {
+			/* DST is a reg. */
+			reg = radeon_get_ib_value(p, idx+3) << 2;
+			if (!r600_is_safe_reg(p, reg, idx+3))
+				return -EINVAL;
+		}
+		break;
+	case PACKET3_NOP:
+		break;
+	default:
+
+#define	VGT_STRMOUT_BUFFER_OFFSET_1			0x28AEC
+#define	VGT_STRMOUT_BUFFER_OFFSET_2			0x28AFC
+#define	VGT_STRMOUT_BUFFER_OFFSET_3			0x28B0C
+#define VGT_STRMOUT_BUFFER_SIZE_0			0x28AD0
+#define VGT_STRMOUT_BUFFER_SIZE_1			0x28AE0
+#define VGT_STRMOUT_BUFFER_SIZE_2			0x28AF0
+#define VGT_STRMOUT_BUFFER_SIZE_3			0x28B00
+
+#define	VGT_STRMOUT_EN					0x28AB0
+#define	VGT_VERTEX_REUSE_BLOCK_CNTL			0x28C58
+#define		VTX_REUSE_DEPTH_MASK				0x000000FF
+
+#              define PACKET3_SEM_SEL_SIGNAL	    (0x6 << 29)
+#              define PACKET3_SEM_SEL_WAIT	    (0x7 << 29)
+#define	PACKET3_MPEG_INDEX				0x3A
+#define	PACKET3_COPY_DW					0x3B
+#define	PACKET3_WAIT_REG_MEM				0x3C
+#define	PACKET3_MEM_WRITE				0x3D
+#define	PACKET3_INDIRECT_BUFFER				0x32
+
+ *   2.10.0 - fusion 2D tiling
+ *   2.11.0 - backend map, initial compute support for the CS checker
+ *   2.12.0 - RADEON_CS_KEEP_TILING_FLAGS
+ *   2.13.0 - virtual memory support
+ *   2.13.0 - virtual memory support, streamout
+ */
+#define KMS_DRIVER_MAJOR	2
+#define KMS_DRIVER_MINOR	13
+
+cayman 0x9400
+0x0000802C GRBM_GFX_INDEX
+0x000084FC CP_STRMOUT_CNTL
+0x000085F0 CP_COHER_CNTL
+0x000085F4 CP_COHER_SIZE
+0x000088B0 VGT_VTX_VECT_EJECT_REG
+0x000088C4 VGT_CACHE_INVALIDATION
+0x000088D4 VGT_GS_VERTEX_REUSE
+
+cayman 0x94000x00028AC0 DB_SRESULTS_COMPARE_STATE0
+0x00028AC4 DB_SRESULTS_COMPARE_STATE1
+0x00028AC8 DB_PRELOAD_CONTROL
+0x00028AD4 VGT_STRMOUT_VTX_STRIDE_0
+0x00028AE4 VGT_STRMOUT_VTX_STRIDE_1
+0x00028AF4 VGT_STRMOUT_VTX_STRIDE_2
+0x00028B04 VGT_STRMOUT_VTX_STRIDE_3
+0x00028B28 VGT_STRMOUT_DRAW_OPAQUE_OFFSET
+0x00028B2C VGT_STRMOUT_DRAW_OPAQUE_BUFFER_FILLED_SIZE
+0x00028B30 VGT_STRMOUT_DRAW_OPAQUE_VERTEX_STRIDE
+0x00028B38 VGT_GS_MAX_VERT_OUT
+0x00028B54 VGT_SHADER_STAGES_EN
+0x00028B58 VGT_LS_HS_CONFIG
+
+evergreen 0x94000x00008044 WAIT_UNTIL_POLL_CNTL
+0x00008048 WAIT_UNTIL_POLL_MASK
+0x0000804c WAIT_UNTIL_POLL_REFDATA
+0x000084FC CP_STRMOUT_CNTL
+0x000085F0 CP_COHER_CNTL
+0x000085F4 CP_COHER_SIZE
+0x000088B0 VGT_VTX_VECT_EJECT_REG
+0x000088C4 VGT_CACHE_INVALIDATION
+0x000088D4 VGT_GS_VERTEX_REUSE
+
+evergreen 0x94000x00028AC0 DB_SRESULTS_COMPARE_STATE0
+0x00028AC4 DB_SRESULTS_COMPARE_STATE1
+0x00028AC8 DB_PRELOAD_CONTROL
+0x00028AD4 VGT_STRMOUT_VTX_STRIDE_0
+0x00028AE4 VGT_STRMOUT_VTX_STRIDE_1
+0x00028AF4 VGT_STRMOUT_VTX_STRIDE_2
+0x00028B04 VGT_STRMOUT_VTX_STRIDE_3
+0x00028B28 VGT_STRMOUT_DRAW_OPAQUE_OFFSET
+0x00028B2C VGT_STRMOUT_DRAW_OPAQUE_BUFFER_FILLED_SIZE
+0x00028B30 VGT_STRMOUT_DRAW_OPAQUE_VERTEX_STRIDE
+0x00028B38 VGT_GS_MAX_VERT_OUT
+0x00028B54 VGT_SHADER_STAGES_EN
+0x00028B58 VGT_LS_HS_CONFIG
+
+r600 0x94000x00028230 R7xx_PA_SC_EDGERULE
+0x000286C8 R7xx_SPI_THREAD_GROUPING
+0x00008D8C R7xx_SQ_DYN_GPR_CNTL_PS_FLUSH_REQ
+0x00008490 CP_STRMOUT_CNTL
+0x000085F0 CP_COHER_CNTL
+0x000085F4 CP_COHER_SIZE
+0x000088C4 VGT_CACHE_INVALIDATION
+0x00028A50 VGT_ENHANCE
+0x000088CC VGT_ES_PER_GS
+
+r600 0x94000x00028AB4 VGT_REUSE_OFF
+0x00028AB8 VGT_VTX_CNT_EN
+0x000088B0 VGT_VTX_VECT_EJECT_REG
+0x00028AD4 VGT_STRMOUT_VTX_STRIDE_0
+0x00028AE4 VGT_STRMOUT_VTX_STRIDE_1
+0x00028AF4 VGT_STRMOUT_VTX_STRIDE_2
+0x00028B04 VGT_STRMOUT_VTX_STRIDE_3
+0x00028B28 VGT_STRMOUT_DRAW_OPAQUE_OFFSET
+0x00028B2C VGT_STRMOUT_DRAW_OPAQUE_BUFFER_FILLED_SIZE
+0x00028B30 VGT_STRMOUT_DRAW_OPAQUE_VERTEX_STRIDE
+0x00028810 PA_CL_CLIP_CNTL
+0x00008A14 PA_CL_ENHANCE
+0x00028C14 PA_CL_GB_HORZ_CLIP_ADJ
+
+r600 0x94000x00028438 SX_ALPHA_REF
+0x00028410 SX_ALPHA_TEST_CONTROL
+0x00028350 SX_MISC
+0x00028354 SX_SURFACE_SYNC
+0x00009014 SX_MEMORY_EXPORT_SIZE
+0x00009604 TC_INVALIDATE
+0x00009400 TD_FILTER4
+
+

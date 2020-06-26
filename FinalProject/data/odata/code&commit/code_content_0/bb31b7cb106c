@@ -1,0 +1,203 @@
+int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,			     ar->wmi.svc_map))
+			val |= WMI_10_4_TX_DATA_ACK_RSSI;
+
+		if (test_bit(WMI_SERVICE_REPORT_AIRTIME, ar->wmi.svc_map))
+			val |= WMI_10_4_REPORT_AIRTIME;
+
+		status = ath10k_mac_ext_resource_config(ar, val);
+		if (status) {
+			ath10k_err(ar,
+
+struct htt_mgmt_tx_completion {#define HTT_RX_INDICATION_INFO0_EXT_TID_LSB   (0)
+#define HTT_RX_INDICATION_INFO0_FLUSH_VALID   (1 << 5)
+#define HTT_RX_INDICATION_INFO0_RELEASE_VALID (1 << 6)
+#define HTT_RX_INDICATION_INFO0_PPDU_DURATION BIT(7)
+
+#define HTT_RX_INDICATION_INFO1_FLUSH_START_SEQNO_MASK   0x0000003F
+#define HTT_RX_INDICATION_INFO1_FLUSH_START_SEQNO_LSB    0
+
+struct htt_mgmt_tx_completion {#define HTT_RX_INDICATION_INFO1_NUM_MPDU_RANGES_MASK     0xFF000000
+#define HTT_RX_INDICATION_INFO1_NUM_MPDU_RANGES_LSB      24
+
+#define HTT_TX_CMPL_FLAG_DATA_RSSI BIT(0)
+#define HTT_TX_CMPL_FLAG_DATA_RSSI		BIT(0)
+#define HTT_TX_CMPL_FLAG_PPID_PRESENT		BIT(1)
+#define HTT_TX_CMPL_FLAG_PA_PRESENT		BIT(2)
+#define HTT_TX_CMPL_FLAG_PPDU_DURATION_PRESENT	BIT(3)
+
+struct htt_rx_indication_hdr {
+	u8 info0; /* %HTT_RX_INDICATION_INFO0_ */
+
+struct htt_data_tx_completion {	__le16 msdus[0]; /* variable length based on %num_msdus */
+} __packed;
+
+#define HTT_TX_PPDU_DUR_INFO0_PEER_ID_MASK	GENMASK(15, 0)
+#define HTT_TX_PPDU_DUR_INFO0_TID_MASK		GENMASK(20, 16)
+
+struct htt_data_tx_ppdu_dur {
+	__le32 info0; /* HTT_TX_PPDU_DUR_INFO0_ */
+	__le32 tx_duration; /* in usecs */
+} __packed;
+
+#define HTT_TX_COMPL_PPDU_DUR_INFO0_NUM_ENTRIES_MASK	GENMASK(7, 0)
+
+struct htt_data_tx_compl_ppdu_dur {
+	__le32 info0; /* HTT_TX_COMPL_PPDU_DUR_INFO0_ */
+	struct htt_data_tx_ppdu_dur ppdu_dur[0];
+} __packed;
+
+struct htt_tx_compl_ind_base {
+	u32 hdr;
+	u16 payload[1/*or more*/];
+
+static void ath10k_htt_rx_tx_compl_ind(struct ath10k *ar,	int status = MS(resp->data_tx_completion.flags, HTT_DATA_TX_STATUS);
+	__le16 msdu_id, *msdus;
+	bool rssi_enabled = false;
+	u8 msdu_count = 0;
+	u8 msdu_count = 0, num_airtime_records, tid;
+	int i;
+	struct htt_data_tx_compl_ppdu_dur *ppdu_info;
+	struct ath10k_peer *peer;
+	u16 ppdu_info_offset = 0, peer_id;
+	u32 tx_duration;
+
+	switch (status) {
+	case HTT_DATA_TX_STATUS_NO_ACK:
+
+static void ath10k_htt_rx_tx_compl_ind(struct ath10k *ar,		   resp->data_tx_completion.num_msdus);
+
+	msdu_count = resp->data_tx_completion.num_msdus;
+	msdus = resp->data_tx_completion.msdus;
+
+	if (resp->data_tx_completion.flags2 & HTT_TX_CMPL_FLAG_DATA_RSSI)
+		rssi_enabled = true;
+
+	for (i = 0; i < msdu_count; i++) {
+		msdus = resp->data_tx_completion.msdus;
+		msdu_id = msdus[i];
+		tx_done.msdu_id = __le16_to_cpu(msdu_id);
+
+
+static void ath10k_htt_rx_tx_compl_ind(struct ath10k *ar,			ath10k_txrx_tx_unref(htt, &tx_done);
+		}
+	}
+
+	if (!(resp->data_tx_completion.flags2 & HTT_TX_CMPL_FLAG_PPDU_DURATION_PRESENT))
+		return;
+
+	ppdu_info_offset = (msdu_count & 0x01) ? msdu_count + 1 : msdu_count;
+
+	if (rssi_enabled)
+		ppdu_info_offset += ppdu_info_offset;
+
+	if (resp->data_tx_completion.flags2 &
+	    (HTT_TX_CMPL_FLAG_PPID_PRESENT | HTT_TX_CMPL_FLAG_PA_PRESENT))
+		ppdu_info_offset += 2;
+
+	ppdu_info = (struct htt_data_tx_compl_ppdu_dur *)&msdus[ppdu_info_offset];
+	num_airtime_records = FIELD_GET(HTT_TX_COMPL_PPDU_DUR_INFO0_NUM_ENTRIES_MASK,
+					__le32_to_cpu(ppdu_info->info0));
+
+	for (i = 0; i < num_airtime_records; i++) {
+		struct htt_data_tx_ppdu_dur *ppdu_dur;
+		u32 info0;
+
+		ppdu_dur = &ppdu_info->ppdu_dur[i];
+		info0 = __le32_to_cpu(ppdu_dur->info0);
+
+		peer_id = FIELD_GET(HTT_TX_PPDU_DUR_INFO0_PEER_ID_MASK,
+				    info0);
+		rcu_read_lock();
+		spin_lock_bh(&ar->data_lock);
+
+		peer = ath10k_peer_find_by_id(ar, peer_id);
+		if (!peer) {
+			spin_unlock_bh(&ar->data_lock);
+			rcu_read_unlock();
+			continue;
+		}
+
+		tid = FIELD_GET(HTT_TX_PPDU_DUR_INFO0_TID_MASK, info0);
+		tx_duration = __le32_to_cpu(ppdu_dur->tx_duration);
+
+		ieee80211_sta_register_airtime(peer->sta, tid, tx_duration, 0);
+
+		spin_unlock_bh(&ar->data_lock);
+		rcu_read_unlock();
+	}
+}
+
+static void ath10k_htt_rx_addba(struct ath10k *ar, struct htt_resp *resp)
+
+static u16 ath10k_mac_update_airtime(struct ath10k *ar,	if (!txq || !txq->sta)
+		return airtime;
+
+	if (test_bit(WMI_SERVICE_REPORT_AIRTIME, ar->wmi.svc_map))
+		return airtime;
+
+	spin_lock_bh(&ar->data_lock);
+	arsta = (struct ath10k_sta *)txq->sta->drv_priv;
+
+
+int ath10k_mac_register(struct ath10k *ar)		wiphy_ext_feature_set(ar->hw->wiphy,
+				      NL80211_EXT_FEATURE_ACK_SIGNAL_SUPPORT);
+
+	if (ath10k_peer_stats_enabled(ar))
+	if (ath10k_peer_stats_enabled(ar) ||
+	    test_bit(WMI_SERVICE_REPORT_AIRTIME, ar->wmi.svc_map))
+		wiphy_ext_feature_set(ar->hw->wiphy,
+				      NL80211_EXT_FEATURE_AIRTIME_FAIRNESS);
+
+
+int ath10k_txrx_tx_unref(struct ath10k_htt *htt,		wake_up(&htt->empty_tx_wq);
+	spin_unlock_bh(&htt->tx_lock);
+
+	if (txq && txq->sta)
+	if (txq && txq->sta && skb_cb->airtime_est)
+		ieee80211_sta_register_airtime(txq->sta, txq->tid,
+					       skb_cb->airtime_est, 0);
+
+
+enum wmi_service {	WMI_SERVICE_THERM_THROT,
+	WMI_SERVICE_RTT_RESPONDER_ROLE,
+	WMI_SERVICE_PER_PACKET_SW_ENCRYPT,
+	WMI_SERVICE_REPORT_AIRTIME,
+
+	/* keep last */
+	WMI_SERVICE_MAX,
+
+enum wmi_10_4_service {	WMI_10_4_SERVICE_RX_FILTER_OUT_COUNT,
+	WMI_10_4_SERVICE_RTT_RESPONDER_ROLE,
+	WMI_10_4_SERVICE_EXT_PEER_TID_CONFIGS_SUPPORT,
+	WMI_10_4_SERVICE_REPORT_AIRTIME,
+};
+
+static inline char *wmi_service_name(int service_id)
+
+static inline char *wmi_service_name(int service_id)	SVCSTR(WMI_SERVICE_VDEV_DIFFERENT_BEACON_INTERVAL_SUPPORT);
+	SVCSTR(WMI_SERVICE_RTT_RESPONDER_ROLE);
+	SVCSTR(WMI_SERVICE_PER_PACKET_SW_ENCRYPT);
+	SVCSTR(WMI_SERVICE_REPORT_AIRTIME);
+
+	default:
+		return NULL;
+
+static inline void wmi_10_4_svc_map(const __le32 *in, unsigned long *out,	       WMI_SERVICE_RTT_RESPONDER_ROLE, len);
+	SVCMAP(WMI_10_4_SERVICE_PER_PACKET_SW_ENCRYPT,
+	       WMI_SERVICE_PER_PACKET_SW_ENCRYPT, len);
+	SVCMAP(WMI_10_4_SERVICE_REPORT_AIRTIME,
+	       WMI_SERVICE_REPORT_AIRTIME, len);
+}
+
+#undef SVCMAP
+
+enum wmi_10_4_feature_mask {	WMI_10_4_TDLS_CONN_TRACKER_IN_HOST_MODE = BIT(11),
+	WMI_10_4_TDLS_EXPLICIT_MODE_ONLY	= BIT(12),
+	WMI_10_4_TX_DATA_ACK_RSSI               = BIT(16),
+	WMI_10_4_EXT_PEER_TID_CONFIGS_SUPPORT	= BIT(17),
+	WMI_10_4_REPORT_AIRTIME			= BIT(18),
+
+};
+
+
+

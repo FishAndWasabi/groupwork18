@@ -1,0 +1,174 @@
+ *unexpected HW behavior, HW BUG
+ *and so on.
+ */
+#define DBG_EMERG			0
+/*#define DBG_EMERG			0 */
+
+/*
+ *Abnormal, rare, or unexpeted cases.
+
+int rtl88e_download_fw(struct ieee80211_hw *hw,	_rtl88e_enable_fw_download(hw, false);
+
+	err = _rtl88e_fw_free_to_go(hw);
+	if (err) {
+	if (err)
+		pr_err("Firmware is not ready to run!\n");
+	} else {
+		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD,
+			 "Firmware is ready to run!\n");
+	}
+
+	return 0;
+}
+
+int rtl92c_download_fw(struct ieee80211_hw *hw)	_rtl92c_enable_fw_download(hw, false);
+
+	err = _rtl92c_fw_free_to_go(hw);
+	if (err) {
+	if (err)
+		pr_err("Firmware is not ready to run!\n");
+	} else {
+		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
+			 "Firmware is ready to run!\n");
+	}
+
+	return 0;
+}
+
+static void _rtl92d_write_fw(struct ieee80211_hw *hw,		_rtl92d_fill_dummy(bufferPtr, &size);
+	pagenums = size / FW_8192D_PAGE_SIZE;
+	remainSize = size % FW_8192D_PAGE_SIZE;
+	if (pagenums > 8) {
+	if (pagenums > 8)
+		pr_err("Page numbers should not greater then 8\n");
+	}
+	for (page = 0; page < pagenums; page++) {
+		offset = page * FW_8192D_PAGE_SIZE;
+		_rtl92d_fw_page_write(hw, page, (bufferPtr + offset),
+
+static int _rtl92d_fw_free_to_go(struct ieee80211_hw *hw)		       value32);
+		return -EIO;
+	}
+	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
+		 "Checksum report OK ! REG_MCUFWDL:0x%08x\n", value32);
+	value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
+	value32 |= MCUFWDL_RDY;
+	rtl_write_dword(rtlpriv, REG_MCUFWDL, value32);
+
+int rtl92d_download_fw(struct ieee80211_hw *hw)	value &= (~BIT(5));
+	rtl_write_byte(rtlpriv, 0x1f, value);
+	spin_unlock_irqrestore(&globalmutex_for_fwdownload, flags);
+	if (err) {
+	if (err)
+		pr_err("fw is not ready to run!\n");
+		goto exit;
+	} else {
+		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE, "fw is ready to run!\n");
+	}
+exit:
+	err = _rtl92d_fw_init(hw);
+	return err;
+
+static int _rtl92ee_fw_free_to_go(struct ieee80211_hw *hw)		       value32);
+		goto exit;
+	}
+
+	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
+		 "Checksum report OK! REG_MCUFWDL:0x%08x\n", value32);
+
+	value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
+	value32 |= MCUFWDL_RDY;
+	value32 &= ~WINTINI_RDY;
+
+static int _rtl92ee_fw_free_to_go(struct ieee80211_hw *hw)
+	do {
+		value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
+		if (value32 & WINTINI_RDY) {
+			RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD ,
+				 "Polling FW ready success!! REG_MCUFWDL:0x%08x. count = %d\n",
+				 value32, counter);
+			err = 0;
+			goto exit;
+		}
+		if (value32 & WINTINI_RDY)
+			return 0;
+
+		udelay(FW_8192C_POLLING_DELAY*10);
+
+
+int rtl92ee_download_fw(struct ieee80211_hw *hw, bool buse_wake_on_wlan_fw)	_rtl92ee_enable_fw_download(hw, false);
+
+	err = _rtl92ee_fw_free_to_go(hw);
+	if (err) {
+		pr_err("Firmware is not ready to run!\n");
+	} else {
+		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD ,
+			 "Firmware is ready to run!\n");
+	}
+
+	return 0;
+}
+
+int rtl8723_fw_free_to_go(struct ieee80211_hw *hw, bool is_8723be,		       value32);
+		goto exit;
+	}
+	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
+		 "Checksum report OK ! REG_MCUFWDL:0x%08x .\n", value32);
+
+	value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL) | MCUFWDL_RDY;
+	value32 &= ~WINTINI_RDY;
+	rtl_write_dword(rtlpriv, REG_MCUFWDL, value32);
+
+int rtl8723_download_fw(struct ieee80211_hw *hw,	rtl8723_enable_fw_download(hw, false);
+
+	err = rtl8723_fw_free_to_go(hw, is_8723be, max_count);
+	if (err) {
+	if (err)
+		pr_err("Firmware is not ready to run!\n");
+	} else {
+		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
+			 "Firmware is ready to run!\n");
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(rtl8723_download_fw);
+
+static void _rtl8821ae_write_fw(struct ieee80211_hw *hw,	pagenums = size / FW_8821AE_PAGE_SIZE;
+	remainsize = size % FW_8821AE_PAGE_SIZE;
+
+	if (pagenums > 8) {
+	if (pagenums > 8)
+		pr_err("Page numbers should not greater then 8\n");
+	}
+
+	for (page = 0; page < pagenums; page++) {
+		offset = page * FW_8821AE_PAGE_SIZE;
+
+static int _rtl8821ae_fw_free_to_go(struct ieee80211_hw *hw)			  value32);
+		goto exit;
+	}
+
+	pr_err("Checksum report OK! REG_MCUFWDL:0x%08x\n",
+	       value32);
+
+	value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
+	value32 |= MCUFWDL_RDY;
+	value32 &= ~WINTINI_RDY;
+
+static int _rtl8821ae_fw_free_to_go(struct ieee80211_hw *hw)	counter = 0;
+	do {
+		value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
+		if (value32 & WINTINI_RDY) {
+			RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD,
+				 "Polling FW ready success!! REG_MCUFWDL:0x%08x .\n",
+				  value32);
+			err = 0;
+			goto exit;
+		}
+		if (value32 & WINTINI_RDY)
+			return 0;
+
+		udelay(FW_8821AE_POLLING_DELAY);
+	} while (counter++ < FW_8821AE_POLLING_TIMEOUT_COUNT);
+
+

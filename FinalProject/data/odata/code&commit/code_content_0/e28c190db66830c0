@@ -1,0 +1,67 @@
+static int ccp_rsa_complete(struct crypto_async_request *async_req, int ret)
+static unsigned int ccp_rsa_maxsize(struct crypto_akcipher *tfm)
+{
+	return CCP_RSA_MAXMOD;
+	if (ccp_version() > CCP_VERSION(3, 0))
+		return CCP5_RSA_MAXMOD;
+	else
+		return CCP_RSA_MAXMOD;
+}
+
+static int ccp_rsa_crypt(struct akcipher_request *req, bool encrypt)
+
+struct ccp_rsa_req_ctx {};
+
+#define	CCP_RSA_MAXMOD	(4 * 1024 / 8)
+#define	CCP5_RSA_MAXMOD	(16 * 1024 / 8)
+
+/***** Common Context Structure *****/
+struct ccp_ctx {
+
+const struct ccp_vdata ccpv3 = {	.setup = NULL,
+	.perform = &ccp3_actions,
+	.offset = 0x20000,
+	.rsamax = CCP_RSA_MAX_WIDTH,
+};
+
+const struct ccp_vdata ccpv5a = {	.setup = ccp5_config,
+	.perform = &ccp5_actions,
+	.offset = 0x0,
+	.rsamax = CCP5_RSA_MAX_WIDTH,
+};
+
+const struct ccp_vdata ccpv5b = {
+
+const struct ccp_vdata ccpv5b = {	.setup = ccp5other_config,
+	.perform = &ccp5_actions,
+	.offset = 0x0,
+	.rsamax = CCP5_RSA_MAX_WIDTH,
+};
+
+#define CCP_SHA_SB_COUNT		1
+
+#define CCP_RSA_MAX_WIDTH		4096
+#define CCP5_RSA_MAX_WIDTH		16384
+
+#define CCP_PASSTHRU_BLOCKSIZE		256
+#define CCP_PASSTHRU_MASKSIZE		32
+
+static int ccp_run_rsa_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)	unsigned int sb_count, i_len, o_len;
+	int ret;
+
+	if (rsa->key_size > CCP_RSA_MAX_WIDTH)
+	/* Check against the maximum allowable size, in bits */
+	if (rsa->key_size > cmd_q->ccp->vdata->rsamax)
+		return -EINVAL;
+
+	if (!rsa->exp || !rsa->mod || !rsa->src || !rsa->dst)
+
+struct ccp_vdata {	void (*setup)(struct ccp_device *);
+	const struct ccp_actions *perform;
+	const unsigned int offset;
+	const unsigned int rsamax;
+};
+/* Structure to hold SP device data */
+struct sp_dev_vdata {
+
+

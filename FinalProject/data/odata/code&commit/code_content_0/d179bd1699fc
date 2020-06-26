@@ -1,0 +1,90 @@
+struct qed_hwfn {	struct qed_ptt			*p_main_ptt;
+	struct qed_ptt			*p_dpc_ptt;
+
+	/* PTP will be used only by the leading function.
+	 * Usage of all PTP-apis should be synchronized as result.
+	 */
+	struct qed_ptt *p_ptp_ptt;
+
+	struct qed_sb_sp_info		*p_sp_sb;
+	struct qed_sb_attn_info		*p_sb_attn;
+
+
+struct qed_hwfn {
+	struct qed_ptt *p_arfs_ptt;
+
+	/* p_ptp_ptt is valid for leading HWFN only */
+	struct qed_ptt *p_ptp_ptt;
+	struct qed_simd_fp_handler	simd_proto_handler[64];
+
+#ifdef CONFIG_QED_SRIOV
+
+static int qed_slowpath_start(struct qed_dev *cdev,			}
+		}
+#endif
+		p_ptt = qed_ptt_acquire(QED_LEADING_HWFN(cdev));
+		if (p_ptt) {
+			QED_LEADING_HWFN(cdev)->p_ptp_ptt = p_ptt;
+		} else {
+			DP_NOTICE(cdev, "Failed to acquire PTT for PTP\n");
+			goto err;
+		}
+	}
+
+	cdev->rx_coalesce_usecs = QED_DEFAULT_RX_USECS;
+
+static int qed_slowpath_start(struct qed_dev *cdev,		qed_ptt_release(QED_LEADING_HWFN(cdev),
+				QED_LEADING_HWFN(cdev)->p_arfs_ptt);
+#endif
+	if (IS_PF(cdev) && QED_LEADING_HWFN(cdev)->p_ptp_ptt)
+		qed_ptt_release(QED_LEADING_HWFN(cdev),
+				QED_LEADING_HWFN(cdev)->p_ptp_ptt);
+
+	qed_iov_wq_stop(cdev, false);
+
+
+static int qed_slowpath_stop(struct qed_dev *cdev)			qed_ptt_release(QED_LEADING_HWFN(cdev),
+					QED_LEADING_HWFN(cdev)->p_arfs_ptt);
+#endif
+		qed_ptt_release(QED_LEADING_HWFN(cdev),
+				QED_LEADING_HWFN(cdev)->p_ptp_ptt);
+		qed_free_stream_mem(cdev);
+		if (IS_QED_ETH_IF(cdev))
+			qed_sriov_disable(cdev, true);
+
+static int qed_ptp_hw_adjfreq(struct qed_dev *cdev, s32 ppb)static int qed_ptp_hw_enable(struct qed_dev *cdev)
+{
+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
+	struct qed_ptt *p_ptt;
+	int rc;
+
+	p_ptt = qed_ptt_acquire(p_hwfn);
+	if (!p_ptt) {
+		DP_NOTICE(p_hwfn, "Failed to acquire PTT for PTP\n");
+		return -EBUSY;
+	}
+
+	p_hwfn->p_ptp_ptt = p_ptt;
+
+	rc = qed_ptp_res_lock(p_hwfn, p_ptt);
+	if (rc) {
+		DP_INFO(p_hwfn,
+			"Couldn't acquire the resource lock, skip ptp enable for this PF\n");
+		qed_ptt_release(p_hwfn, p_ptt);
+		p_hwfn->p_ptp_ptt = NULL;
+		return rc;
+	}
+
+
+static int qed_ptp_hw_disable(struct qed_dev *cdev)	qed_wr(p_hwfn, p_ptt, NIG_REG_RX_PTP_EN, 0x0);
+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_PTP_EN, 0x0);
+
+	qed_ptt_release(p_hwfn, p_ptt);
+	p_hwfn->p_ptp_ptt = NULL;
+
+	return 0;
+}
+
+
+

@@ -1,0 +1,96 @@
+static int hists_browser__scnprintf_hierarchy_headers(struct hist_browser *brows	struct perf_hpp_fmt *fmt;
+	size_t ret = 0;
+	int column = 0;
+	int nr_sort_keys = hists->hpp_list->nr_sort_keys;
+	int nr_sort_keys = hists->nr_sort_keys;
+	bool first = true;
+
+	ret = scnprintf(buf, size, " ");
+
+static unsigned int hist_browser__refresh(struct ui_browser *browser)	u16 header_offset = 0;
+	struct rb_node *nd;
+	struct hist_browser *hb = container_of(browser, struct hist_browser, b);
+	int nr_sort = hb->hists->hpp_list->nr_sort_keys;
+	int nr_sort = hb->hists->nr_sort_keys;
+
+	if (hb->show_headers) {
+		hist_browser__show_headers(hb);
+
+static int hist_browser__fprintf(struct hist_browser *browser, FILE *fp)	struct rb_node *nd = hists__filter_entries(rb_first(browser->b.entries),
+						   browser->min_pcnt);
+	int printed = 0;
+	int nr_sort = browser->hists->hpp_list->nr_sort_keys;
+	int nr_sort = browser->hists->nr_sort_keys;
+
+	while (nd) {
+		struct hist_entry *h = rb_entry(nd, struct hist_entry, rb_node);
+
+static int hist_entry__fprintf(struct hist_entry *he, size_t size,		size = hpp.size = bfsz;
+
+	if (symbol_conf.report_hierarchy) {
+		int nr_sort = hists->hpp_list->nr_sort_keys;
+		int nr_sort = hists->nr_sort_keys;
+
+		return hist_entry__hierarchy_fprintf(he, &hpp, nr_sort,
+						     hists, fp);
+
+static int print_hierarchy_header(struct hists *hists, struct perf_hpp *hpp,	unsigned header_width = 0;
+	struct perf_hpp_fmt *fmt;
+
+	nr_sort = hists->hpp_list->nr_sort_keys;
+	nr_sort = hists->nr_sort_keys;
+
+	/* preserve max indent depth for column headers */
+	print_hierarchy_indent(sep, nr_sort, spaces, fp);
+
+size_t hists__fprintf(struct hists *hists, bool show_header, int max_rows,		 * display "no entry >= x.xx%" message.
+		 */
+		if (!h->leaf && !hist_entry__has_hierarchy_children(h, min_pcnt)) {
+			int nr_sort = hists->hpp_list->nr_sort_keys;
+			int nr_sort = hists->nr_sort_keys;
+
+			print_hierarchy_indent(sep, nr_sort + h->depth + 1, spaces, fp);
+			fprintf(fp, "%*sno entry >= %.2f%%\n", indent, "", min_pcnt);
+
+struct hists {	u16			col_len[HISTC_NR_COLS];
+	int			socket_filter;
+	struct perf_hpp_list	*hpp_list;
+	int			nr_sort_keys;
+};
+
+struct hist_entry_iter;
+
+static int __setup_output_field(void)int setup_sorting(struct perf_evlist *evlist)
+{
+	int err;
+	struct hists *hists;
+	struct perf_evsel *evsel;
+	struct perf_hpp_fmt *fmt;
+
+	err = __setup_sorting(evlist);
+	if (err < 0)
+
+int setup_sorting(struct perf_evlist *evlist)			return err;
+	}
+
+	evlist__for_each(evlist, evsel) {
+		hists = evsel__hists(evsel);
+		hists->nr_sort_keys = perf_hpp_list.nr_sort_keys;
+
+		/*
+		 * If dynamic entries were used, it might add multiple
+		 * entries to each evsel for a single field name.  Set
+		 * actual number of sort keys for each hists.
+		 */
+		perf_hpp_list__for_each_sort_list(&perf_hpp_list, fmt) {
+			if (perf_hpp__is_dynamic_entry(fmt) &&
+			    !perf_hpp__defined_dynamic_entry(fmt, hists))
+				hists->nr_sort_keys--;
+		}
+	}
+
+	reset_dimensions();
+
+	/*
+
+

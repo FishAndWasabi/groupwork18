@@ -1,0 +1,89 @@
+void rpcrdma_set_max_header_sizes(struct rpcrdma_xprt *r_xprt)/* The client can send a request inline as long as the RPCRDMA header
+ * plus the RPC call fit under the transport's inline limit. If the
+ * combined call message size exceeds that limit, the client must use
+ * the read chunk list for this operation.
+ * a Read chunk for this operation.
+ *
+ * A Read chunk is also required if sending the RPC call inline would
+ * exceed this device's max_sge limit.
+ */
+static bool rpcrdma_args_inline(struct rpcrdma_xprt *r_xprt,
+				struct rpc_rqst *rqst)
+{
+	struct rpcrdma_ia *ia = &r_xprt->rx_ia;
+	struct xdr_buf *xdr = &rqst->rq_snd_buf;
+	unsigned int count, remaining, offset;
+
+	if (xdr->len > r_xprt->rx_ia.ri_max_inline_write)
+		return false;
+
+	return rqst->rq_snd_buf.len <= ia->ri_max_inline_write;
+	if (xdr->page_len) {
+		remaining = xdr->page_len;
+		offset = xdr->page_base & ~PAGE_MASK;
+		count = 0;
+		while (remaining) {
+			remaining -= min_t(unsigned int,
+					   PAGE_SIZE - offset, remaining);
+			offset = 0;
+			if (++count > r_xprt->rx_ia.ri_max_send_sges)
+				return false;
+		}
+	}
+
+	return true;
+}
+
+/* The client can't know how large the actual reply will be. Thus it
+
+rpcrdma_ia_close(struct rpcrdma_ia *ia) */
+int
+rpcrdma_ep_create(struct rpcrdma_ep *ep, struct rpcrdma_ia *ia,
+				struct rpcrdma_create_data_internal *cdata)
+		  struct rpcrdma_create_data_internal *cdata)
+{
+	struct rpcrdma_connect_private *pmsg = &ep->rep_cm_private;
+	unsigned int max_qp_wr, max_sge;
+	struct ib_cq *sendcq, *recvcq;
+	unsigned int max_qp_wr;
+	int rc;
+
+	if (ia->ri_device->attrs.max_sge < RPCRDMA_MAX_SEND_SGES) {
+		dprintk("RPC:       %s: insufficient sge's available\n",
+			__func__);
+	max_sge = min(ia->ri_device->attrs.max_sge, RPCRDMA_MAX_SEND_SGES);
+	if (max_sge < RPCRDMA_MIN_SEND_SGES) {
+		pr_warn("rpcrdma: HCA provides only %d send SGEs\n", max_sge);
+		return -ENOMEM;
+	}
+	ia->ri_max_send_sges = max_sge - RPCRDMA_MIN_SEND_SGES;
+
+	if (ia->ri_device->attrs.max_qp_wr <= RPCRDMA_BACKWARD_WRS) {
+		dprintk("RPC:       %s: insufficient wqe's available\n",
+
+rpcrdma_ep_create(struct rpcrdma_ep *ep, struct rpcrdma_ia *ia,	ep->rep_attr.cap.max_recv_wr = cdata->max_requests;
+	ep->rep_attr.cap.max_recv_wr += RPCRDMA_BACKWARD_WRS;
+	ep->rep_attr.cap.max_recv_wr += 1;	/* drain cqe */
+	ep->rep_attr.cap.max_send_sge = RPCRDMA_MAX_SEND_SGES;
+	ep->rep_attr.cap.max_send_sge = max_sge;
+	ep->rep_attr.cap.max_recv_sge = 1;
+	ep->rep_attr.cap.max_inline_data = 0;
+	ep->rep_attr.sq_sig_type = IB_SIGNAL_REQ_WR;
+
+struct rpcrdma_ia {	unsigned int		ri_max_frmr_depth;
+	unsigned int		ri_max_inline_write;
+	unsigned int		ri_max_inline_read;
+	unsigned int		ri_max_send_sges;
+	bool			ri_reminv_expected;
+	bool			ri_implicit_roundup;
+	enum ib_mr_type		ri_mrtype;
+
+struct rpcrdma_mr_seg {		/* chunk descriptors */ * - xdr_buf tail iovec
+ */
+enum {
+	RPCRDMA_MIN_SEND_SGES = 3,
+	RPCRDMA_MAX_SEND_PAGES = PAGE_SIZE + RPCRDMA_MAX_INLINE - 1,
+	RPCRDMA_MAX_PAGE_SGES = (RPCRDMA_MAX_SEND_PAGES >> PAGE_SHIFT) + 1,
+	RPCRDMA_MAX_SEND_SGES = 1 + 1 + RPCRDMA_MAX_PAGE_SGES + 1,
+
+

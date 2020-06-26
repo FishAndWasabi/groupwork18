@@ -1,0 +1,1434 @@
+static void switch_mocs(struct intel_vgpu *pre, struct intel_vgpu *next,
+#define CTX_CONTEXT_CONTROL_VAL	0x03
+
+bool is_inhibit_context(struct i915_gem_context *ctx, int ring_id)
+bool is_inhibit_context(struct intel_context *ce)
+{
+	u32 *reg_state = ctx->__engine[ring_id].lrc_reg_state;
+	const u32 *reg_state = ce->lrc_reg_state;
+	u32 inhibit_mask =
+		_MASKED_BIT_ENABLE(CTX_CTRL_ENGINE_CTX_RESTORE_INHIBIT);
+
+
+static void switch_mmio(struct intel_vgpu *pre,			 * itself.
+			 */
+			if (mmio->in_context &&
+			    !is_inhibit_context(s->shadow_ctx, ring_id))
+			    !is_inhibit_context(&s->shadow_ctx->__engine[ring_id]))
+				continue;
+
+			if (mmio->mask)
+
+void intel_gvt_switch_mmio(struct intel_vgpu *pre,
+void intel_gvt_init_engine_mmio_context(struct intel_gvt *gvt);
+
+bool is_inhibit_context(struct i915_gem_context *ctx, int ring_id);
+bool is_inhibit_context(struct intel_context *ce);
+
+int intel_vgpu_restore_inhibit_context(struct intel_vgpu *vgpu,
+				       struct i915_request *req);
+
+static void set_context_pdp_root_pointer(
+static void update_shadow_pdps(struct intel_vgpu_workload *workload)
+{
+	struct intel_vgpu *vgpu = workload->vgpu;
+	int ring_id = workload->ring_id;
+	struct i915_gem_context *shadow_ctx = vgpu->submission.shadow_ctx;
+	struct drm_i915_gem_object *ctx_obj =
+		shadow_ctx->__engine[ring_id].state->obj;
+		workload->req->hw_context->state->obj;
+	struct execlist_ring_context *shadow_ring_context;
+	struct page *page;
+
+
+static int populate_shadow_context(struct intel_vgpu_workload *workload)	struct intel_vgpu *vgpu = workload->vgpu;
+	struct intel_gvt *gvt = vgpu->gvt;
+	int ring_id = workload->ring_id;
+	struct i915_gem_context *shadow_ctx = vgpu->submission.shadow_ctx;
+	struct drm_i915_gem_object *ctx_obj =
+		shadow_ctx->__engine[ring_id].state->obj;
+		workload->req->hw_context->state->obj;
+	struct execlist_ring_context *shadow_ring_context;
+	struct page *page;
+	void *dst;
+
+static int shadow_context_status_change(struct notifier_block *nb,	return NOTIFY_OK;
+}
+
+static void shadow_context_descriptor_update(struct i915_gem_context *ctx,
+		struct intel_engine_cs *engine)
+static void shadow_context_descriptor_update(struct intel_context *ce)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+	u64 desc = 0;
+
+	desc = ce->lrc_desc;
+
+static void shadow_context_descriptor_update(struct i915_gem_context *ctx,	 * like GEN8_CTX_* cached in desc_template
+	 */
+	desc &= U64_MAX << 12;
+	desc |= ctx->desc_template & ((1ULL << 12) - 1);
+	desc |= ce->gem_context->desc_template & ((1ULL << 12) - 1);
+
+	ce->lrc_desc = desc;
+}
+
+static void shadow_context_descriptor_update(struct i915_gem_context *ctx,static int copy_workload_to_ring_buffer(struct intel_vgpu_workload *workload)
+{
+	struct intel_vgpu *vgpu = workload->vgpu;
+	struct i915_request *req = workload->req;
+	void *shadow_ring_buffer_va;
+	u32 *cs;
+	struct i915_request *req = workload->req;
+
+	if (IS_KABYLAKE(req->i915) &&
+	    is_inhibit_context(req->gem_context, req->engine->id))
+	if (IS_KABYLAKE(req->i915) && is_inhibit_context(req->hw_context))
+		intel_vgpu_restore_inhibit_context(vgpu, req);
+
+	/* allocate shadow ring buffer */
+
+int intel_gvt_scan_and_shadow_workload(struct intel_vgpu_workload *workload)	struct intel_vgpu_submission *s = &vgpu->submission;
+	struct i915_gem_context *shadow_ctx = s->shadow_ctx;
+	struct drm_i915_private *dev_priv = vgpu->gvt->dev_priv;
+	int ring_id = workload->ring_id;
+	struct intel_engine_cs *engine = dev_priv->engine[ring_id];
+	struct intel_ring *ring;
+	struct intel_engine_cs *engine = dev_priv->engine[workload->ring_id];
+	struct intel_context *ce;
+	int ret;
+
+	lockdep_assert_held(&dev_priv->drm.struct_mutex);
+
+	if (workload->shadowed)
+	if (workload->req)
+		return 0;
+
+	/* pin shadow context by gvt even the shadow context will be pinned
+	 * when i915 alloc request. That is because gvt will update the guest
+	 * context from shadow context when workload is completed, and at that
+	 * moment, i915 may already unpined the shadow context to make the
+	 * shadow_ctx pages invalid. So gvt need to pin itself. After update
+	 * the guest context, gvt can unpin the shadow_ctx safely.
+	 */
+	ce = intel_context_pin(shadow_ctx, engine);
+	if (IS_ERR(ce)) {
+		gvt_vgpu_err("fail to pin shadow context\n");
+		return PTR_ERR(ce);
+	}
+
+	shadow_ctx->desc_template &= ~(0x3 << GEN8_CTX_ADDRESSING_MODE_SHIFT);
+	shadow_ctx->desc_template |= workload->ctx_desc.addressing_mode <<
+				    GEN8_CTX_ADDRESSING_MODE_SHIFT;
+
+	if (!test_and_set_bit(ring_id, s->shadow_ctx_desc_updated))
+		shadow_context_descriptor_update(shadow_ctx,
+					dev_priv->engine[ring_id]);
+	if (!test_and_set_bit(workload->ring_id, s->shadow_ctx_desc_updated))
+		shadow_context_descriptor_update(ce);
+
+	ret = intel_gvt_scan_and_shadow_ringbuffer(workload);
+	if (ret)
+		goto err_scan;
+		goto err_unpin;
+
+	if ((workload->ring_id == RCS) &&
+	    (workload->wa_ctx.indirect_ctx.size != 0)) {
+		ret = intel_gvt_scan_and_shadow_wa_ctx(&workload->wa_ctx);
+		if (ret)
+			goto err_scan;
+	}
+
+	/* pin shadow context by gvt even the shadow context will be pinned
+	 * when i915 alloc request. That is because gvt will update the guest
+	 * context from shadow context when workload is completed, and at that
+	 * moment, i915 may already unpined the shadow context to make the
+	 * shadow_ctx pages invalid. So gvt need to pin itself. After update
+	 * the guest context, gvt can unpin the shadow_ctx safely.
+	 */
+	ring = intel_context_pin(shadow_ctx, engine);
+	if (IS_ERR(ring)) {
+		ret = PTR_ERR(ring);
+		gvt_vgpu_err("fail to pin shadow context\n");
+		goto err_shadow;
+			goto err_shadow;
+	}
+
+	ret = populate_shadow_context(workload);
+	if (ret)
+		goto err_unpin;
+	workload->shadowed = true;
+		goto err_shadow;
+
+	return 0;
+
+err_unpin:
+	intel_context_unpin(shadow_ctx, engine);
+err_shadow:
+	release_shadow_wa_ctx(&workload->wa_ctx);
+err_scan:
+err_unpin:
+	intel_context_unpin(ce);
+	return ret;
+}
+
+
+static int intel_gvt_generate_request(struct intel_vgpu_workload *workload){
+	int ring_id = workload->ring_id;
+	struct drm_i915_private *dev_priv = workload->vgpu->gvt->dev_priv;
+	struct intel_engine_cs *engine = dev_priv->engine[ring_id];
+	struct i915_request *rq;
+	struct intel_vgpu *vgpu = workload->vgpu;
+	struct intel_vgpu_submission *s = &vgpu->submission;
+
+static int intel_gvt_generate_request(struct intel_vgpu_workload *workload)	return 0;
+
+err_unpin:
+	intel_context_unpin(shadow_ctx, engine);
+	release_shadow_wa_ctx(&workload->wa_ctx);
+	return ret;
+}
+
+static int prepare_shadow_batch_buffer(struct intel_vgpu_workload *workload)	return ret;
+}
+
+static int update_wa_ctx_2_shadow_ctx(struct intel_shadow_wa_ctx *wa_ctx)
+static void update_wa_ctx_2_shadow_ctx(struct intel_shadow_wa_ctx *wa_ctx)
+{
+	struct intel_vgpu_workload *workload = container_of(wa_ctx,
+					struct intel_vgpu_workload,
+					wa_ctx);
+	int ring_id = workload->ring_id;
+	struct intel_vgpu_submission *s = &workload->vgpu->submission;
+	struct i915_gem_context *shadow_ctx = s->shadow_ctx;
+	struct drm_i915_gem_object *ctx_obj =
+		shadow_ctx->__engine[ring_id].state->obj;
+	struct execlist_ring_context *shadow_ring_context;
+	struct page *page;
+
+	page = i915_gem_object_get_page(ctx_obj, LRC_STATE_PN);
+	shadow_ring_context = kmap_atomic(page);
+	struct intel_vgpu_workload *workload =
+		container_of(wa_ctx, struct intel_vgpu_workload, wa_ctx);
+	struct i915_request *rq = workload->req;
+	struct execlist_ring_context *shadow_ring_context =
+		(struct execlist_ring_context *)rq->hw_context->lrc_reg_state;
+
+	shadow_ring_context->bb_per_ctx_ptr.val =
+		(shadow_ring_context->bb_per_ctx_ptr.val &
+
+static int update_wa_ctx_2_shadow_ctx(struct intel_shadow_wa_ctx *wa_ctx)	shadow_ring_context->rcs_indirect_ctx.val =
+		(shadow_ring_context->rcs_indirect_ctx.val &
+		(~INDIRECT_CTX_ADDR_MASK)) | wa_ctx->indirect_ctx.shadow_gma;
+
+	kunmap_atomic(shadow_ring_context);
+	return 0;
+}
+
+static int prepare_shadow_wa_ctx(struct intel_shadow_wa_ctx *wa_ctx)
+
+static int prepare_workload(struct intel_vgpu_workload *workload)static int dispatch_workload(struct intel_vgpu_workload *workload)
+{
+	struct intel_vgpu *vgpu = workload->vgpu;
+	struct intel_vgpu_submission *s = &vgpu->submission;
+	struct i915_gem_context *shadow_ctx = s->shadow_ctx;
+	struct drm_i915_private *dev_priv = vgpu->gvt->dev_priv;
+	int ring_id = workload->ring_id;
+	struct intel_engine_cs *engine = dev_priv->engine[ring_id];
+	int ret = 0;
+	int ret;
+
+	gvt_dbg_sched("ring id %d prepare to dispatch workload %p\n",
+		ring_id, workload);
+
+static int dispatch_workload(struct intel_vgpu_workload *workload)		goto out;
+
+	ret = prepare_workload(workload);
+	if (ret) {
+		intel_context_unpin(shadow_ctx, engine);
+		goto out;
+	}
+
+out:
+	if (ret)
+
+static struct intel_vgpu_workload *pick_next_workload(
+static void update_guest_context(struct intel_vgpu_workload *workload)
+{
+	struct i915_request *rq = workload->req;
+	struct intel_vgpu *vgpu = workload->vgpu;
+	struct intel_gvt *gvt = vgpu->gvt;
+	struct intel_vgpu_submission *s = &vgpu->submission;
+	struct i915_gem_context *shadow_ctx = s->shadow_ctx;
+	int ring_id = workload->ring_id;
+	struct drm_i915_gem_object *ctx_obj =
+		shadow_ctx->__engine[ring_id].state->obj;
+	struct drm_i915_gem_object *ctx_obj = rq->hw_context->state->obj;
+	struct execlist_ring_context *shadow_ring_context;
+	struct page *page;
+	void *src;
+	unsigned long context_gpa, context_page_num;
+	int i;
+
+	gvt_dbg_sched("ring id %d workload lrca %x\n", ring_id,
+			workload->ctx_desc.lrca);
+
+	context_page_num = gvt->dev_priv->engine[ring_id]->context_size;
+	gvt_dbg_sched("ring id %d workload lrca %x\n", rq->engine->id,
+		      workload->ctx_desc.lrca);
+
+	context_page_num = rq->engine->context_size;
+	context_page_num = context_page_num >> PAGE_SHIFT;
+
+	if (IS_BROADWELL(gvt->dev_priv) && ring_id == RCS)
+	if (IS_BROADWELL(gvt->dev_priv) && rq->engine->id == RCS)
+		context_page_num = 19;
+
+	i = 2;
+
+static void complete_current_workload(struct intel_gvt *gvt, int ring_id)		scheduler->current_workload[ring_id];
+	struct intel_vgpu *vgpu = workload->vgpu;
+	struct intel_vgpu_submission *s = &vgpu->submission;
+	struct i915_request *rq;
+	int event;
+
+	mutex_lock(&gvt->lock);
+
+static void complete_current_workload(struct intel_gvt *gvt, int ring_id)	 * switch to make sure request is completed.
+	 * For the workload w/o request, directly complete the workload.
+	 */
+	if (workload->req) {
+		struct drm_i915_private *dev_priv =
+			workload->vgpu->gvt->dev_priv;
+		struct intel_engine_cs *engine =
+			dev_priv->engine[workload->ring_id];
+	rq = fetch_and_zero(&workload->req);
+	if (rq) {
+		wait_event(workload->shadow_ctx_status_wq,
+			   !atomic_read(&workload->shadow_ctx_active));
+
+
+static void complete_current_workload(struct intel_gvt *gvt, int ring_id)				workload->status = 0;
+		}
+
+		i915_request_put(fetch_and_zero(&workload->req));
+
+		if (!workload->status && !(vgpu->resetting_eng &
+					   ENGINE_MASK(ring_id))) {
+			update_guest_context(workload);
+
+static void complete_current_workload(struct intel_gvt *gvt, int ring_id)					 INTEL_GVT_EVENT_MAX)
+				intel_vgpu_trigger_virtual_event(vgpu, event);
+		}
+		mutex_lock(&dev_priv->drm.struct_mutex);
+
+		/* unpin shadow ctx as the shadow_ctx update is done */
+		intel_context_unpin(s->shadow_ctx, engine);
+		mutex_unlock(&dev_priv->drm.struct_mutex);
+		mutex_lock(&rq->i915->drm.struct_mutex);
+		intel_context_unpin(rq->hw_context);
+		mutex_unlock(&rq->i915->drm.struct_mutex);
+
+		i915_request_put(rq);
+	}
+
+	gvt_dbg_sched("ring id %d complete workload %p status %d\n",
+
+alloc_workload(struct intel_vgpu *vgpu)	atomic_set(&workload->shadow_ctx_active, 0);
+
+	workload->status = -EINPROGRESS;
+	workload->shadowed = false;
+	workload->vgpu = vgpu;
+
+	return workload;
+
+struct intel_vgpu_workload {	struct i915_request *req;
+	/* if this workload has been dispatched to i915? */
+	bool dispatched;
+	bool shadowed;
+	int status;
+
+	struct intel_vgpu_mm *shadow_mm;
+
+struct drm_i915_private {			 */
+			struct i915_perf_stream *exclusive_stream;
+
+			struct intel_context *pinned_ctx;
+			u32 specific_ctx_id;
+
+			struct hrtimer poll_check_timer;
+
+void i915_gem_reset(struct drm_i915_private *dev_priv,	i915_retire_requests(dev_priv);
+
+	for_each_engine(engine, dev_priv, id) {
+		struct i915_gem_context *ctx;
+		struct intel_context *ce;
+
+		i915_gem_reset_engine(engine,
+				      engine->hangcheck.active_request,
+				      stalled_mask & ENGINE_MASK(id));
+		ctx = fetch_and_zero(&engine->last_retired_context);
+		if (ctx)
+			intel_context_unpin(ctx, engine);
+		ce = fetch_and_zero(&engine->last_retired_context);
+		if (ce)
+			intel_context_unpin(ce);
+
+		/*
+		 * Ostensibily, we always want a context loaded for powersaving,
+
+void __i915_gem_object_release_unless_active(struct drm_i915_gem_object *obj)
+static void assert_kernel_context_is_current(struct drm_i915_private *i915)
+{
+	struct i915_gem_context *kernel_context = i915->kernel_context;
+	struct i915_gem_context *kctx = i915->kernel_context;
+	struct intel_engine_cs *engine;
+	enum intel_engine_id id;
+
+	for_each_engine(engine, i915, id) {
+		GEM_BUG_ON(__i915_gem_active_peek(&engine->timeline.last_request));
+		GEM_BUG_ON(engine->last_retired_context != kernel_context);
+		GEM_BUG_ON(engine->last_retired_context->gem_context != kctx);
+	}
+}
+
+
+static void i915_gem_context_free(struct i915_gem_context *ctx)	for (n = 0; n < ARRAY_SIZE(ctx->__engine); n++) {
+		struct intel_context *ce = &ctx->__engine[n];
+
+		if (!ce->state)
+			continue;
+
+		WARN_ON(ce->pin_count);
+		if (ce->ring)
+			intel_ring_free(ce->ring);
+
+		__i915_gem_object_release_unless_active(ce->state->obj);
+		if (ce->ops)
+			ce->ops->destroy(ce);
+	}
+
+	kfree(ctx->name);
+
+__create_hw_context(struct drm_i915_private *dev_priv,		    struct drm_i915_file_private *file_priv)
+{
+	struct i915_gem_context *ctx;
+	unsigned int n;
+	int ret;
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+
+__create_hw_context(struct drm_i915_private *dev_priv,	ctx->i915 = dev_priv;
+	ctx->sched.priority = I915_PRIORITY_NORMAL;
+
+	for (n = 0; n < ARRAY_SIZE(ctx->__engine); n++) {
+		struct intel_context *ce = &ctx->__engine[n];
+
+		ce->gem_context = ctx;
+	}
+
+	INIT_RADIX_TREE(&ctx->handles_vma, GFP_KERNEL);
+	INIT_LIST_HEAD(&ctx->handles_list);
+
+
+struct intel_ring;
+#define DEFAULT_CONTEXT_HANDLE 0
+
+struct intel_context_ops {
+	void (*unpin)(struct intel_context *ce);
+	void (*destroy)(struct intel_context *ce);
+};
+
+/**
+ * struct i915_gem_context - client state
+ *
+
+struct i915_gem_context {
+	/** engine: per-engine logical HW state */
+	struct intel_context {
+		struct i915_gem_context *gem_context;
+		struct i915_vma *state;
+		struct intel_ring *ring;
+		u32 *lrc_reg_state;
+		u64 lrc_desc;
+		int pin_count;
+
+		const struct intel_context_ops *ops;
+	} __engine[I915_NUM_ENGINES];
+
+	/** ring_size: size for allocating the per-engine ring buffer */
+
+to_intel_context(struct i915_gem_context *ctx,	return &ctx->__engine[engine->id];
+}
+
+static inline struct intel_ring *
+static inline struct intel_context *
+intel_context_pin(struct i915_gem_context *ctx, struct intel_engine_cs *engine)
+{
+	return engine->context_pin(engine, ctx);
+}
+
+static inline void __intel_context_pin(struct i915_gem_context *ctx,
+				       const struct intel_engine_cs *engine)
+static inline void __intel_context_pin(struct intel_context *ce)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+
+	GEM_BUG_ON(!ce->pin_count);
+	ce->pin_count++;
+}
+
+static inline void intel_context_unpin(struct i915_gem_context *ctx,
+				       struct intel_engine_cs *engine)
+static inline void intel_context_unpin(struct intel_context *ce)
+{
+	engine->context_unpin(engine, ctx);
+	GEM_BUG_ON(!ce->ops);
+	ce->ops->unpin(ce);
+}
+
+/* i915_gem_context.c */
+
+static void gem_record_rings(struct i915_gpu_state *error)
+			ee->ctx =
+				i915_error_object_create(i915,
+							 to_intel_context(ctx,
+									  engine)->state);
+							 request->hw_context->state);
+
+			error->simulated |=
+				i915_gem_context_no_error_capture(ctx);
+
+static int oa_get_render_ctx_id(struct i915_perf_stream *stream)		dev_priv->perf.oa.specific_ctx_id = stream->ctx->hw_id;
+	} else {
+		struct intel_engine_cs *engine = dev_priv->engine[RCS];
+		struct intel_ring *ring;
+		struct intel_context *ce;
+		int ret;
+
+		ret = i915_mutex_lock_interruptible(&dev_priv->drm);
+
+static int oa_get_render_ctx_id(struct i915_perf_stream *stream)		 *
+		 * NB: implied RCS engine...
+		 */
+		ring = intel_context_pin(stream->ctx, engine);
+		ce = intel_context_pin(stream->ctx, engine);
+		mutex_unlock(&dev_priv->drm.struct_mutex);
+		if (IS_ERR(ring))
+			return PTR_ERR(ring);
+		if (IS_ERR(ce))
+			return PTR_ERR(ce);
+
+		dev_priv->perf.oa.pinned_ctx = ce;
+
+		/*
+		 * Explicitly track the ID (instead of calling
+		 * i915_ggtt_offset() on the fly) considering the difference
+		 * with gen8+ and execlists
+		 */
+		dev_priv->perf.oa.specific_ctx_id =
+			i915_ggtt_offset(to_intel_context(stream->ctx, engine)->state);
+		dev_priv->perf.oa.specific_ctx_id = i915_ggtt_offset(ce->state);
+	}
+
+	return 0;
+
+static int oa_get_render_ctx_id(struct i915_perf_stream *stream)static void oa_put_render_ctx_id(struct i915_perf_stream *stream)
+{
+	struct drm_i915_private *dev_priv = stream->dev_priv;
+	struct intel_context *ce;
+
+	if (HAS_LOGICAL_RING_CONTEXTS(dev_priv)) {
+		dev_priv->perf.oa.specific_ctx_id = INVALID_CTX_ID;
+	} else {
+		struct intel_engine_cs *engine = dev_priv->engine[RCS];
+	dev_priv->perf.oa.specific_ctx_id = INVALID_CTX_ID;
+
+	ce = fetch_and_zero(&dev_priv->perf.oa.pinned_ctx);
+	if (ce) {
+		mutex_lock(&dev_priv->drm.struct_mutex);
+
+		dev_priv->perf.oa.specific_ctx_id = INVALID_CTX_ID;
+		intel_context_unpin(stream->ctx, engine);
+
+		intel_context_unpin(ce);
+		mutex_unlock(&dev_priv->drm.struct_mutex);
+	}
+}
+
+static void __retire_engine_request(struct intel_engine_cs *engine,	 * the subsequent request.
+	 */
+	if (engine->last_retired_context)
+		intel_context_unpin(engine->last_retired_context, engine);
+	engine->last_retired_context = rq->gem_context;
+		intel_context_unpin(engine->last_retired_context);
+	engine->last_retired_context = rq->hw_context;
+}
+
+static void __retire_engine_upto(struct intel_engine_cs *engine,
+
+static void i915_request_retire(struct i915_request *request)
+	/* Retirement decays the ban score as it is a sign of ctx progress */
+	atomic_dec_if_positive(&request->gem_context->ban_score);
+	intel_context_unpin(request->gem_context, request->engine);
+	intel_context_unpin(request->hw_context);
+
+	__retire_engine_upto(request->engine, request);
+
+
+i915_request_alloc(struct intel_engine_cs *engine, struct i915_gem_context *ctx){
+	struct drm_i915_private *i915 = engine->i915;
+	struct i915_request *rq;
+	struct intel_ring *ring;
+	struct intel_context *ce;
+	int ret;
+
+	lockdep_assert_held(&i915->drm.struct_mutex);
+
+i915_request_alloc(struct intel_engine_cs *engine, struct i915_gem_context *ctx)	 * GGTT space, so do this first before we reserve a seqno for
+	 * ourselves.
+	 */
+	ring = intel_context_pin(ctx, engine);
+	if (IS_ERR(ring))
+		return ERR_CAST(ring);
+	GEM_BUG_ON(!ring);
+	ce = intel_context_pin(ctx, engine);
+	if (IS_ERR(ce))
+		return ERR_CAST(ce);
+
+	ret = reserve_gt(i915);
+	if (ret)
+		goto err_unpin;
+
+	ret = intel_ring_wait_for_space(ring, MIN_SPACE_FOR_ADD_REQUEST);
+	ret = intel_ring_wait_for_space(ce->ring, MIN_SPACE_FOR_ADD_REQUEST);
+	if (ret)
+		goto err_unreserve;
+
+	/* Move our oldest request to the slab-cache (if not in use!) */
+	rq = list_first_entry(&ring->request_list, typeof(*rq), ring_link);
+	if (!list_is_last(&rq->ring_link, &ring->request_list) &&
+	rq = list_first_entry(&ce->ring->request_list, typeof(*rq), ring_link);
+	if (!list_is_last(&rq->ring_link, &ce->ring->request_list) &&
+	    i915_request_completed(rq))
+		i915_request_retire(rq);
+
+
+i915_request_alloc(struct intel_engine_cs *engine, struct i915_gem_context *ctx)	rq->i915 = i915;
+	rq->engine = engine;
+	rq->gem_context = ctx;
+	rq->ring = ring;
+	rq->timeline = ring->timeline;
+	rq->hw_context = ce;
+	rq->ring = ce->ring;
+	rq->timeline = ce->ring->timeline;
+	GEM_BUG_ON(rq->timeline == &engine->timeline);
+
+	spin_lock_init(&rq->lock);
+
+i915_request_alloc(struct intel_engine_cs *engine, struct i915_gem_context *ctx)		goto err_unwind;
+
+	/* Keep a second pin for the dual retirement along engine and ring */
+	__intel_context_pin(rq->gem_context, engine);
+	__intel_context_pin(ce);
+
+	/* Check that we didn't interrupt ourselves with a new request */
+	GEM_BUG_ON(rq->timeline->seqno != rq->fence.seqno);
+	return rq;
+
+err_unwind:
+	rq->ring->emit = rq->head;
+	ce->ring->emit = rq->head;
+
+	/* Make sure we didn't add ourselves to external state before freeing */
+	GEM_BUG_ON(!list_empty(&rq->active_list));
+
+i915_request_alloc(struct intel_engine_cs *engine, struct i915_gem_context *ctx)err_unreserve:
+	unreserve_gt(i915);
+err_unpin:
+	intel_context_unpin(ctx, engine);
+	intel_context_unpin(ce);
+	return ERR_PTR(ret);
+}
+
+
+i915_request_await_object(struct i915_request *to,void __i915_request_add(struct i915_request *request, bool flush_caches)
+{
+	struct intel_engine_cs *engine = request->engine;
+	struct intel_ring *ring = request->ring;
+	struct i915_timeline *timeline = request->timeline;
+	struct intel_ring *ring = request->ring;
+	struct i915_request *prev;
+	u32 *cs;
+	int err;
+
+struct i915_request {	 */
+	struct i915_gem_context *gem_context;
+	struct intel_engine_cs *engine;
+	struct intel_context *hw_context;
+	struct intel_ring *ring;
+	struct i915_timeline *timeline;
+	struct intel_signal_node signaling;
+
+static int init_phys_status_page(struct intel_engine_cs *engine)	return 0;
+}
+
+static void __intel_context_unpin(struct i915_gem_context *ctx,
+				  struct intel_engine_cs *engine)
+{
+	intel_context_unpin(to_intel_context(ctx, engine));
+}
+
+/**
+ * intel_engines_init_common - initialize cengine state which might require hw access
+ * @engine: Engine to initialize.
+
+static int init_phys_status_page(struct intel_engine_cs *engine) */
+int intel_engine_init_common(struct intel_engine_cs *engine)
+{
+	struct intel_ring *ring;
+	struct drm_i915_private *i915 = engine->i915;
+	struct intel_context *ce;
+	int ret;
+
+	engine->set_default_submission(engine);
+
+int intel_engine_init_common(struct intel_engine_cs *engine)	 * be available. To avoid this we always pin the default
+	 * context.
+	 */
+	ring = intel_context_pin(engine->i915->kernel_context, engine);
+	if (IS_ERR(ring))
+		return PTR_ERR(ring);
+	ce = intel_context_pin(i915->kernel_context, engine);
+	if (IS_ERR(ce))
+		return PTR_ERR(ce);
+
+	/*
+	 * Similarly the preempt context must always be available so that
+	 * we can interrupt the engine at any time.
+	 */
+	if (engine->i915->preempt_context) {
+		ring = intel_context_pin(engine->i915->preempt_context, engine);
+		if (IS_ERR(ring)) {
+			ret = PTR_ERR(ring);
+	if (i915->preempt_context) {
+		ce = intel_context_pin(i915->preempt_context, engine);
+		if (IS_ERR(ce)) {
+			ret = PTR_ERR(ce);
+			goto err_unpin_kernel;
+		}
+	}
+
+int intel_engine_init_common(struct intel_engine_cs *engine)	if (ret)
+		goto err_unpin_preempt;
+
+	if (HWS_NEEDS_PHYSICAL(engine->i915))
+	if (HWS_NEEDS_PHYSICAL(i915))
+		ret = init_phys_status_page(engine);
+	else
+		ret = init_status_page(engine);
+
+int intel_engine_init_common(struct intel_engine_cs *engine)err_breadcrumbs:
+	intel_engine_fini_breadcrumbs(engine);
+err_unpin_preempt:
+	if (engine->i915->preempt_context)
+		intel_context_unpin(engine->i915->preempt_context, engine);
+	if (i915->preempt_context)
+		__intel_context_unpin(i915->preempt_context, engine);
+
+err_unpin_kernel:
+	intel_context_unpin(engine->i915->kernel_context, engine);
+	__intel_context_unpin(i915->kernel_context, engine);
+	return ret;
+}
+
+
+int intel_engine_init_common(struct intel_engine_cs *engine) */
+void intel_engine_cleanup_common(struct intel_engine_cs *engine)
+{
+	struct drm_i915_private *i915 = engine->i915;
+
+	intel_engine_cleanup_scratch(engine);
+
+	if (HWS_NEEDS_PHYSICAL(engine->i915))
+
+void intel_engine_cleanup_common(struct intel_engine_cs *engine)	if (engine->default_state)
+		i915_gem_object_put(engine->default_state);
+
+	if (engine->i915->preempt_context)
+		intel_context_unpin(engine->i915->preempt_context, engine);
+	intel_context_unpin(engine->i915->kernel_context, engine);
+	if (i915->preempt_context)
+		__intel_context_unpin(i915->preempt_context, engine);
+	__intel_context_unpin(i915->kernel_context, engine);
+
+	i915_timeline_fini(&engine->timeline);
+}
+
+bool intel_engines_are_idle(struct drm_i915_private *dev_priv) */
+bool intel_engine_has_kernel_context(const struct intel_engine_cs *engine)
+{
+	const struct i915_gem_context * const kernel_context =
+		engine->i915->kernel_context;
+	const struct intel_context *kernel_context =
+		to_intel_context(engine->i915->kernel_context, engine);
+	struct i915_request *rq;
+
+	lockdep_assert_held(&engine->i915->drm.struct_mutex);
+
+bool intel_engine_has_kernel_context(const struct intel_engine_cs *engine)	 */
+	rq = __i915_gem_active_peek(&engine->timeline.last_request);
+	if (rq)
+		return rq->gem_context == kernel_context;
+		return rq->hw_context == kernel_context;
+	else
+		return engine->last_retired_context == kernel_context;
+}
+
+void intel_engines_unpark(struct drm_i915_private *i915) */
+void intel_engine_lost_context(struct intel_engine_cs *engine)
+{
+	struct i915_gem_context *ctx;
+	struct intel_context *ce;
+
+	lockdep_assert_held(&engine->i915->drm.struct_mutex);
+
+	engine->legacy_active_context = NULL;
+	engine->legacy_active_ppgtt = NULL;
+
+	ctx = fetch_and_zero(&engine->last_retired_context);
+	if (ctx)
+		intel_context_unpin(ctx, engine);
+	ce = fetch_and_zero(&engine->last_retired_context);
+	if (ce)
+		intel_context_unpin(ce);
+}
+
+bool intel_engine_can_store_dword(struct intel_engine_cs *engine)
+
+static void guc_add_request(struct intel_guc *guc, struct i915_request *rq){
+	struct intel_guc_client *client = guc->execbuf_client;
+	struct intel_engine_cs *engine = rq->engine;
+	u32 ctx_desc =
+		lower_32_bits(intel_lr_context_descriptor(rq->gem_context,
+							  engine));
+	u32 ctx_desc = lower_32_bits(rq->hw_context->lrc_desc);
+	u32 ring_tail = intel_ring_set_tail(rq->ring, rq->tail) / sizeof(u64);
+
+	spin_lock(&client->wq_lock);
+
+static void inject_preempt_context(struct work_struct *work)					     preempt_work[engine->id]);
+	struct intel_guc_client *client = guc->preempt_client;
+	struct guc_stage_desc *stage_desc = __get_stage_desc(client);
+	u32 ctx_desc = lower_32_bits(intel_lr_context_descriptor(client->owner,
+								 engine));
+	u32 ctx_desc = lower_32_bits(to_intel_context(client->owner,
+						      engine)->lrc_desc);
+	u32 data[7];
+
+	/*
+
+static bool __guc_dequeue(struct intel_engine_cs *engine)		struct i915_request *rq, *rn;
+
+		list_for_each_entry_safe(rq, rn, &p->requests, sched.link) {
+			if (last && rq->gem_context != last->gem_context) {
+			if (last && rq->hw_context != last->hw_context) {
+				if (port == last_port) {
+					__list_del_many(&p->requests,
+							&rq->sched.link);
+
+#define WA_TAIL_BYTES (sizeof(u32) * WA_TAIL_DWORDS)
+
+static int execlists_context_deferred_alloc(struct i915_gem_context *ctx,
+					    struct intel_engine_cs *engine);
+					    struct intel_engine_cs *engine,
+					    struct intel_context *ce);
+static void execlists_init_reg_state(u32 *reg_state,
+				     struct i915_gem_context *ctx,
+				     struct intel_engine_cs *engine,
+
+static inline bool need_preempt(const struct intel_engine_cs *engine,		!i915_request_completed(last));
+}
+
+/**
+ * intel_lr_context_descriptor_update() - calculate & cache the descriptor
+ * 					  descriptor for a pinned context
+ * @ctx: Context to work on
+ * @engine: Engine the descriptor will be used with
+ *
+/*
+ * The context descriptor encodes various attributes of a context,
+ * including its GTT address and some flags. Because it's fairly
+ * expensive to calculate, we'll just do it once and cache the result,
+
+static inline bool need_preempt(const struct intel_engine_cs *engine, */
+static void
+intel_lr_context_descriptor_update(struct i915_gem_context *ctx,
+				   struct intel_engine_cs *engine)
+				   struct intel_engine_cs *engine,
+				   struct intel_context *ce)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+	u64 desc;
+
+	BUILD_BUG_ON(MAX_CONTEXT_HW_ID > (BIT(GEN8_CTX_ID_WIDTH)));
+
+execlists_update_context_pdps(struct i915_hw_ppgtt *ppgtt, u32 *reg_state)
+static u64 execlists_update_context(struct i915_request *rq)
+{
+	struct intel_context *ce =
+		to_intel_context(rq->gem_context, rq->engine);
+	struct intel_context *ce = rq->hw_context;
+	struct i915_hw_ppgtt *ppgtt =
+		rq->gem_context->ppgtt ?: rq->i915->mm.aliasing_ppgtt;
+	u32 *reg_state = ce->lrc_reg_state;
+
+static void execlists_submit_ports(struct intel_engine_cs *engine)	execlists_clear_active(execlists, EXECLISTS_ACTIVE_HWACK);
+}
+
+static bool ctx_single_port_submission(const struct i915_gem_context *ctx)
+static bool ctx_single_port_submission(const struct intel_context *ce)
+{
+	return (IS_ENABLED(CONFIG_DRM_I915_GVT) &&
+		i915_gem_context_force_single_submission(ctx));
+		i915_gem_context_force_single_submission(ce->gem_context));
+}
+
+static bool can_merge_ctx(const struct i915_gem_context *prev,
+			  const struct i915_gem_context *next)
+static bool can_merge_ctx(const struct intel_context *prev,
+			  const struct intel_context *next)
+{
+	if (prev != next)
+		return false;
+
+static bool __execlists_dequeue(struct intel_engine_cs *engine)			 * second request, and so we never need to tell the
+			 * hardware about the first.
+			 */
+			if (last && !can_merge_ctx(rq->gem_context,
+						   last->gem_context)) {
+			if (last &&
+			    !can_merge_ctx(rq->hw_context, last->hw_context)) {
+				/*
+				 * If we are on the second port and cannot
+				 * combine this request with the last, then we
+
+static bool __execlists_dequeue(struct intel_engine_cs *engine)				 * the same context (even though a different
+				 * request) to the second port.
+				 */
+				if (ctx_single_port_submission(last->gem_context) ||
+				    ctx_single_port_submission(rq->gem_context)) {
+				if (ctx_single_port_submission(last->hw_context) ||
+				    ctx_single_port_submission(rq->hw_context)) {
+					__list_del_many(&p->requests,
+							&rq->sched.link);
+					goto done;
+				}
+
+				GEM_BUG_ON(last->gem_context == rq->gem_context);
+				GEM_BUG_ON(last->hw_context == rq->hw_context);
+
+				if (submit)
+					port_assign(port, last);
+
+static void execlists_schedule(struct i915_request *request,	spin_unlock_irq(&engine->timeline.lock);
+}
+
+static void execlists_context_destroy(struct intel_context *ce)
+{
+	GEM_BUG_ON(!ce->state);
+	GEM_BUG_ON(ce->pin_count);
+
+	intel_ring_free(ce->ring);
+	__i915_gem_object_release_unless_active(ce->state->obj);
+}
+
+static void __execlists_context_unpin(struct intel_context *ce)
+{
+	intel_ring_unpin(ce->ring);
+
+	ce->state->obj->pin_global--;
+	i915_gem_object_unpin_map(ce->state->obj);
+	i915_vma_unpin(ce->state);
+
+	i915_gem_context_put(ce->gem_context);
+}
+
+static void execlists_context_unpin(struct intel_context *ce)
+{
+	lockdep_assert_held(&ce->gem_context->i915->drm.struct_mutex);
+	GEM_BUG_ON(ce->pin_count == 0);
+
+	if (--ce->pin_count)
+		return;
+
+	__execlists_context_unpin(ce);
+}
+
+static int __context_pin(struct i915_gem_context *ctx, struct i915_vma *vma)
+{
+	unsigned int flags;
+
+static int __context_pin(struct i915_gem_context *ctx, struct i915_vma *vma)	return i915_vma_pin(vma, 0, GEN8_LR_CONTEXT_ALIGN, flags);
+}
+
+static struct intel_ring *
+execlists_context_pin(struct intel_engine_cs *engine,
+		      struct i915_gem_context *ctx)
+static struct intel_context *
+__execlists_context_pin(struct intel_engine_cs *engine,
+			struct i915_gem_context *ctx,
+			struct intel_context *ce)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+	void *vaddr;
+	int ret;
+
+	lockdep_assert_held(&ctx->i915->drm.struct_mutex);
+
+	if (likely(ce->pin_count++))
+		goto out;
+	GEM_BUG_ON(!ce->pin_count); /* no overflow please! */
+
+	ret = execlists_context_deferred_alloc(ctx, engine);
+	ret = execlists_context_deferred_alloc(ctx, engine, ce);
+	if (ret)
+		goto err;
+	GEM_BUG_ON(!ce->state);
+
+execlists_context_pin(struct intel_engine_cs *engine,	if (ret)
+		goto unpin_map;
+
+	intel_lr_context_descriptor_update(ctx, engine);
+	intel_lr_context_descriptor_update(ctx, engine, ce);
+
+	ce->lrc_reg_state = vaddr + LRC_STATE_PN * PAGE_SIZE;
+	ce->lrc_reg_state[CTX_RING_BUFFER_START+1] =
+
+execlists_context_pin(struct intel_engine_cs *engine,
+	ce->state->obj->pin_global++;
+	i915_gem_context_get(ctx);
+out:
+	return ce->ring;
+	return ce;
+
+unpin_map:
+	i915_gem_object_unpin_map(ce->state->obj);
+
+execlists_context_pin(struct intel_engine_cs *engine,	return ERR_PTR(ret);
+}
+
+static void execlists_context_unpin(struct intel_engine_cs *engine,
+				    struct i915_gem_context *ctx)
+static const struct intel_context_ops execlists_context_ops = {
+	.unpin = execlists_context_unpin,
+	.destroy = execlists_context_destroy,
+};
+
+static struct intel_context *
+execlists_context_pin(struct intel_engine_cs *engine,
+		      struct i915_gem_context *ctx)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+
+	lockdep_assert_held(&ctx->i915->drm.struct_mutex);
+	GEM_BUG_ON(ce->pin_count == 0);
+
+	if (--ce->pin_count)
+		return;
+
+	intel_ring_unpin(ce->ring);
+	if (likely(ce->pin_count++))
+		return ce;
+	GEM_BUG_ON(!ce->pin_count); /* no overflow please! */
+
+	ce->state->obj->pin_global--;
+	i915_gem_object_unpin_map(ce->state->obj);
+	i915_vma_unpin(ce->state);
+	ce->ops = &execlists_context_ops;
+
+	i915_gem_context_put(ctx);
+	return __execlists_context_pin(engine, ctx, ce);
+}
+
+static int execlists_request_alloc(struct i915_request *request)
+{
+	struct intel_context *ce =
+		to_intel_context(request->gem_context, request->engine);
+	int ret;
+
+	GEM_BUG_ON(!ce->pin_count);
+	GEM_BUG_ON(!request->hw_context->pin_count);
+
+	/* Flush enough space to reduce the likelihood of waiting after
+	 * we start building the request - in which case we will just
+
+static void execlists_reset(struct intel_engine_cs *engine,	 * future request will be after userspace has had the opportunity
+	 * to recreate its own state.
+	 */
+	regs = to_intel_context(request->gem_context, engine)->lrc_reg_state;
+	regs = request->hw_context->lrc_reg_state;
+	if (engine->default_state) {
+		void *defaults;
+
+
+logical_ring_default_vfuncs(struct intel_engine_cs *engine)	engine->reset.finish = execlists_reset_finish;
+
+	engine->context_pin = execlists_context_pin;
+	engine->context_unpin = execlists_context_unpin;
+
+	engine->request_alloc = execlists_request_alloc;
+
+	engine->emit_flush = gen8_emit_flush;
+
+static void execlists_init_reg_state(u32 *regs,	struct drm_i915_private *dev_priv = engine->i915;
+	struct i915_hw_ppgtt *ppgtt = ctx->ppgtt ?: dev_priv->mm.aliasing_ppgtt;
+	u32 base = engine->mmio_base;
+	bool rcs = engine->id == RCS;
+	bool rcs = engine->class == RENDER_CLASS;
+
+	/* A context is actually a big batch buffer with several
+	 * MI_LOAD_REGISTER_IMM commands followed by (reg, value) pairs. The
+
+populate_lr_context(struct i915_gem_context *ctx,}
+
+static int execlists_context_deferred_alloc(struct i915_gem_context *ctx,
+					    struct intel_engine_cs *engine)
+					    struct intel_engine_cs *engine,
+					    struct intel_context *ce)
+{
+	struct drm_i915_gem_object *ctx_obj;
+	struct intel_context *ce = to_intel_context(ctx, engine);
+	struct i915_vma *vma;
+	uint32_t context_size;
+	struct intel_ring *ring;
+
+struct i915_gem_context;
+void intel_lr_context_resume(struct drm_i915_private *dev_priv);
+
+static inline uint64_t
+intel_lr_context_descriptor(struct i915_gem_context *ctx,
+			    struct intel_engine_cs *engine)
+{
+	return to_intel_context(ctx, engine)->lrc_desc;
+}
+
+#endif /* _INTEL_LRC_H_ */
+
+static void reset_ring(struct intel_engine_cs *engine,	 */
+	if (request) {
+		struct drm_i915_private *dev_priv = request->i915;
+		struct intel_context *ce =
+			to_intel_context(request->gem_context, engine);
+		struct intel_context *ce = request->hw_context;
+		struct i915_hw_ppgtt *ppgtt;
+
+		if (ce->state) {
+
+intel_ring_free(struct intel_ring *ring)	kfree(ring);
+}
+
+static int context_pin(struct intel_context *ce)
+static void intel_ring_context_destroy(struct intel_context *ce)
+{
+	GEM_BUG_ON(ce->pin_count);
+
+	if (ce->state)
+		__i915_gem_object_release_unless_active(ce->state->obj);
+}
+
+static void intel_ring_context_unpin(struct intel_context *ce)
+{
+	lockdep_assert_held(&ce->gem_context->i915->drm.struct_mutex);
+	GEM_BUG_ON(ce->pin_count == 0);
+
+	if (--ce->pin_count)
+		return;
+
+	if (ce->state) {
+		ce->state->obj->pin_global--;
+		i915_vma_unpin(ce->state);
+	}
+
+	i915_gem_context_put(ce->gem_context);
+}
+
+static int __context_pin(struct intel_context *ce)
+{
+	struct i915_vma *vma = ce->state;
+	int ret;
+
+alloc_context_vma(struct intel_engine_cs *engine)	return ERR_PTR(err);
+}
+
+static struct intel_ring *
+intel_ring_context_pin(struct intel_engine_cs *engine,
+		       struct i915_gem_context *ctx)
+static struct intel_context *
+__ring_context_pin(struct intel_engine_cs *engine,
+		   struct i915_gem_context *ctx,
+		   struct intel_context *ce)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+	int ret;
+
+	lockdep_assert_held(&ctx->i915->drm.struct_mutex);
+
+	if (likely(ce->pin_count++))
+		goto out;
+	GEM_BUG_ON(!ce->pin_count); /* no overflow please! */
+	int err;
+
+	if (!ce->state && engine->context_size) {
+		struct i915_vma *vma;
+
+		vma = alloc_context_vma(engine);
+		if (IS_ERR(vma)) {
+			ret = PTR_ERR(vma);
+			err = PTR_ERR(vma);
+			goto err;
+		}
+
+
+intel_ring_context_pin(struct intel_engine_cs *engine,	}
+
+	if (ce->state) {
+		ret = context_pin(ce);
+		if (ret)
+		err = __context_pin(ce);
+		if (err)
+			goto err;
+
+		ce->state->obj->pin_global++;
+
+intel_ring_context_pin(struct intel_engine_cs *engine,
+	i915_gem_context_get(ctx);
+
+out:
+	/* One ringbuffer to rule them all */
+	return engine->buffer;
+	GEM_BUG_ON(!engine->buffer);
+	ce->ring = engine->buffer;
+
+	return ce;
+
+err:
+	ce->pin_count = 0;
+	return ERR_PTR(ret);
+	return ERR_PTR(err);
+}
+
+static void intel_ring_context_unpin(struct intel_engine_cs *engine,
+				     struct i915_gem_context *ctx)
+static const struct intel_context_ops ring_context_ops = {
+	.unpin = intel_ring_context_unpin,
+	.destroy = intel_ring_context_destroy,
+};
+
+static struct intel_context *
+intel_ring_context_pin(struct intel_engine_cs *engine,
+		       struct i915_gem_context *ctx)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+
+	lockdep_assert_held(&ctx->i915->drm.struct_mutex);
+	GEM_BUG_ON(ce->pin_count == 0);
+
+	if (--ce->pin_count)
+		return;
+	if (likely(ce->pin_count++))
+		return ce;
+	GEM_BUG_ON(!ce->pin_count); /* no overflow please! */
+
+	if (ce->state) {
+		ce->state->obj->pin_global--;
+		i915_vma_unpin(ce->state);
+	}
+	ce->ops = &ring_context_ops;
+
+	i915_gem_context_put(ctx);
+	return __ring_context_pin(engine, ctx, ce);
+}
+
+static int intel_init_ring_buffer(struct intel_engine_cs *engine)
+
+static int intel_init_ring_buffer(struct intel_engine_cs *engine)
+	intel_engine_setup_common(engine);
+
+	err = intel_engine_init_common(engine);
+	if (err)
+		goto err;
+
+	timeline = i915_timeline_create(engine->i915, engine->name);
+	if (IS_ERR(timeline)) {
+		err = PTR_ERR(timeline);
+
+static int intel_init_ring_buffer(struct intel_engine_cs *engine)	GEM_BUG_ON(engine->buffer);
+	engine->buffer = ring;
+
+	err = intel_engine_init_common(engine);
+	if (err)
+		goto err_unpin;
+
+	return 0;
+
+err_unpin:
+	intel_ring_unpin(ring);
+err_ring:
+	intel_ring_free(ring);
+err:
+
+static inline int mi_set_context(struct i915_request *rq, u32 flags)
+	*cs++ = MI_NOOP;
+	*cs++ = MI_SET_CONTEXT;
+	*cs++ = i915_ggtt_offset(to_intel_context(rq->gem_context, engine)->state) | flags;
+	*cs++ = i915_ggtt_offset(rq->hw_context->state) | flags;
+	/*
+	 * w/a: MI_SET_CONTEXT must always be followed by MI_NOOP
+	 * WaMiSetContext_Hang:snb,ivb,vlv
+
+static int switch_context(struct i915_request *rq)		hw_flags = MI_FORCE_RESTORE;
+	}
+
+	if (to_intel_context(to_ctx, engine)->state &&
+	if (rq->hw_context->state &&
+	    (to_ctx != from_ctx || hw_flags & MI_FORCE_RESTORE)) {
+		GEM_BUG_ON(engine->id != RCS);
+
+
+static int ring_request_alloc(struct i915_request *request){
+	int ret;
+
+	GEM_BUG_ON(!to_intel_context(request->gem_context, request->engine)->pin_count);
+	GEM_BUG_ON(!request->hw_context->pin_count);
+
+	/* Flush enough space to reduce the likelihood of waiting after
+	 * we start building the request - in which case we will just
+
+static void intel_ring_default_vfuncs(struct drm_i915_private *dev_priv,	engine->reset.finish = reset_finish;
+
+	engine->context_pin = intel_ring_context_pin;
+	engine->context_unpin = intel_ring_context_unpin;
+
+	engine->request_alloc = ring_request_alloc;
+
+	engine->emit_breadcrumb = i9xx_emit_breadcrumb;
+
+struct intel_engine_cs {
+	void		(*set_default_submission)(struct intel_engine_cs *engine);
+
+	struct intel_ring *(*context_pin)(struct intel_engine_cs *engine,
+					  struct i915_gem_context *ctx);
+	void		(*context_unpin)(struct intel_engine_cs *engine,
+					 struct i915_gem_context *ctx);
+	struct intel_context *(*context_pin)(struct intel_engine_cs *engine,
+					     struct i915_gem_context *ctx);
+
+	int		(*request_alloc)(struct i915_request *rq);
+	int		(*init_context)(struct i915_request *rq);
+
+
+struct intel_engine_cs {	 * to the kernel context and trash it as the save may not happen
+	 * before the hardware is powered down.
+	 */
+	struct i915_gem_context *last_retired_context;
+	struct intel_context *last_retired_context;
+
+	/* We track the current MI_SET_CONTEXT in order to eliminate
+	 * redudant context switches. This presumes that requests are not
+
+mock_context(struct drm_i915_private *i915,	     const char *name)
+{
+	struct i915_gem_context *ctx;
+	unsigned int n;
+	int ret;
+
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+
+mock_context(struct drm_i915_private *i915,	INIT_RADIX_TREE(&ctx->handles_vma, GFP_KERNEL);
+	INIT_LIST_HEAD(&ctx->handles_list);
+
+	for (n = 0; n < ARRAY_SIZE(ctx->__engine); n++) {
+		struct intel_context *ce = &ctx->__engine[n];
+
+		ce->gem_context = ctx;
+	}
+
+	ret = ida_simple_get(&i915->contexts.hw_ida,
+			     0, MAX_CONTEXT_HW_ID, GFP_KERNEL);
+	if (ret < 0)
+
+static void hw_delay_complete(struct timer_list *t)	spin_unlock(&engine->hw_lock);
+}
+
+static struct intel_ring *
+mock_context_pin(struct intel_engine_cs *engine,
+		 struct i915_gem_context *ctx)
+static void mock_context_unpin(struct intel_context *ce)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+	if (--ce->pin_count)
+		return;
+
+	if (!ce->pin_count++)
+		i915_gem_context_get(ctx);
+	i915_gem_context_put(ce->gem_context);
+}
+
+	return engine->buffer;
+static void mock_context_destroy(struct intel_context *ce)
+{
+	GEM_BUG_ON(ce->pin_count);
+}
+
+static void mock_context_unpin(struct intel_engine_cs *engine,
+			       struct i915_gem_context *ctx)
+static const struct intel_context_ops mock_context_ops = {
+	.unpin = mock_context_unpin,
+	.destroy = mock_context_destroy,
+};
+
+static struct intel_context *
+mock_context_pin(struct intel_engine_cs *engine,
+		 struct i915_gem_context *ctx)
+{
+	struct intel_context *ce = to_intel_context(ctx, engine);
+
+	if (!--ce->pin_count)
+		i915_gem_context_put(ctx);
+	if (!ce->pin_count++) {
+		i915_gem_context_get(ctx);
+		ce->ring = engine->buffer;
+		ce->ops = &mock_context_ops;
+	}
+
+	return ce;
+}
+
+static int mock_request_alloc(struct i915_request *request)
+
+struct intel_engine_cs *mock_engine(struct drm_i915_private *i915,	engine->base.status_page.page_addr = (void *)(engine + 1);
+
+	engine->base.context_pin = mock_context_pin;
+	engine->base.context_unpin = mock_context_unpin;
+	engine->base.request_alloc = mock_request_alloc;
+	engine->base.emit_flush = mock_emit_flush;
+	engine->base.emit_breadcrumb = mock_emit_breadcrumb;
+
+void mock_engine_free(struct intel_engine_cs *engine){
+	struct mock_engine *mock =
+		container_of(engine, typeof(*mock), base);
+	struct intel_context *ce;
+
+	GEM_BUG_ON(timer_pending(&mock->hw_delay));
+
+	if (engine->last_retired_context)
+		intel_context_unpin(engine->last_retired_context, engine);
+	ce = fetch_and_zero(&engine->last_retired_context);
+	if (ce)
+		intel_context_unpin(ce);
+
+	mock_ring_free(engine->buffer);
+
+
+

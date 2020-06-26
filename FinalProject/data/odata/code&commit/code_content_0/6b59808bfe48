@@ -1,0 +1,71 @@
+void proc_task_name(struct seq_file *m, struct task_struct *p, bool escape){
+	char *buf;
+	size_t size;
+	char tcomm[sizeof(p->comm)];
+	char tcomm[64];
+	int ret;
+
+	get_task_comm(tcomm, p);
+	if (p->flags & PF_WQ_WORKER)
+		wq_worker_comm(tcomm, sizeof(tcomm), p);
+	else
+		__get_task_comm(tcomm, sizeof(tcomm), p);
+
+	size = seq_get_buf(m, &buf);
+	if (escape) {
+
+extern unsigned int work_busy(struct work_struct *work);extern __printf(1, 2) void set_worker_desc(const char *fmt, ...);
+extern void print_worker_info(const char *log_lvl, struct task_struct *task);
+extern void show_workqueue_state(void);
+extern void wq_worker_comm(char *buf, size_t size, struct task_struct *task);
+
+/**
+ * queue_work - queue work on a workqueue
+
+void show_workqueue_state(void)	rcu_read_unlock_sched();
+}
+
+/* used to show worker information through /proc/PID/{comm,stat,status} */
+void wq_worker_comm(char *buf, size_t size, struct task_struct *task)
+{
+	struct worker *worker;
+	struct worker_pool *pool;
+	int off;
+
+	/* always show the actual comm */
+	off = strscpy(buf, task->comm, size);
+	if (off < 0)
+		return;
+
+	/* stabilize worker pool association */
+	mutex_lock(&wq_pool_attach_mutex);
+
+	worker = kthread_data(task);
+	pool = worker->pool;
+
+	if (pool) {
+		spin_lock_irq(&pool->lock);
+		/*
+		 * ->desc tracks information (wq name or set_worker_desc())
+		 * for the latest execution.  If current, prepend '+',
+		 * otherwise '-'.
+		 */
+		if (worker->desc[0] != '\0') {
+			if (worker->current_work)
+				scnprintf(buf + off, size - off, "+%s",
+					  worker->desc);
+			else
+				scnprintf(buf + off, size - off, "-%s",
+					  worker->desc);
+		}
+		spin_unlock_irq(&pool->lock);
+	}
+
+	mutex_unlock(&wq_pool_attach_mutex);
+}
+
+/*
+ * CPU hotplug.
+ *
+
+

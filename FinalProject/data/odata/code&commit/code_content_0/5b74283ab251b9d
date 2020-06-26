@@ -1,0 +1,27 @@
+void native_flush_tlb_others(const struct cpumask *cpumask,	info.flush_end = end;
+
+	count_vm_tlb_event(NR_TLB_REMOTE_FLUSH);
+	trace_tlb_flush(TLB_REMOTE_SEND_IPI, end - start);
+	if (is_uv_system()) {
+		unsigned int cpu;
+
+
+enum tlb_flush_reason {	TLB_REMOTE_SHOOTDOWN,
+	TLB_LOCAL_SHOOTDOWN,
+	TLB_LOCAL_MM_SHOOTDOWN,
+	TLB_REMOTE_SEND_IPI,
+	NR_TLB_FLUSH_REASONS,
+};
+
+
+	EM(  TLB_FLUSH_ON_TASK_SWITCH,	"flush on task switch" )	\
+	EM(  TLB_REMOTE_SHOOTDOWN,	"remote shootdown" )		\
+	EM(  TLB_LOCAL_SHOOTDOWN,	"local shootdown" )		\
+	EMe( TLB_LOCAL_MM_SHOOTDOWN,	"local mm shootdown" )
+	EM(  TLB_LOCAL_MM_SHOOTDOWN,	"local mm shootdown" )		\
+	EMe( TLB_REMOTE_SEND_IPI,	"remote ipi send" )
+
+/*
+ * First define the enums in TLB_FLUSH_REASON to be exported to userspace
+
+

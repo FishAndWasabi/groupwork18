@@ -1,0 +1,124 @@
+struct rpc_xprt_ops {	void		(*connect)(struct rpc_task *task);
+	int		(*send_request)(struct rpc_task *task);
+	void		(*set_retrans_timeout)(struct rpc_task *task);
+	void		(*timer)(struct rpc_task *task);
+	void		(*close)(struct rpc_xprt *xprt);
+	void		(*destroy)(struct rpc_xprt *xprt);
+};
+
+void			xprt_set_retrans_timeout_rtt(struct rpc_task *task);void			xprt_wake_pending_tasks(struct rpc_xprt *xprt, int status);
+void			xprt_wait_for_buffer_space(struct rpc_task *task);
+void			xprt_write_space(struct rpc_xprt *xprt);
+void			xprt_adjust_cwnd(struct rpc_task *task, int result);
+struct rpc_rqst *	xprt_lookup_rqst(struct rpc_xprt *xprt, u32 xid);
+void			xprt_complete_rqst(struct rpc_xprt *xprt, struct rpc_rqst *req, int copied);
+void			xprt_disconnect(struct rpc_xprt *xprt);
+
+__xprt_put_cong(struct rpc_xprt *xprt, struct rpc_rqst *req)	__xprt_lock_write_next_cong(xprt);
+}
+
+/*
+ * Adjust RPC congestion window
+/**
+ * xprt_adjust_cwnd - adjust transport congestion window
+ * @task: recently completed RPC request used to adjust window
+ * @result: result code of completed RPC request
+ *
+ * We use a time-smoothed congestion estimator to avoid heavy oscillation.
+ */
+static void
+xprt_adjust_cwnd(struct rpc_xprt *xprt, int result)
+void xprt_adjust_cwnd(struct rpc_task *task, int result)
+{
+	unsigned long	cwnd;
+	struct rpc_rqst *req = task->tk_rqstp;
+	struct rpc_xprt *xprt = task->tk_xprt;
+	unsigned long cwnd = xprt->cwnd;
+
+	cwnd = xprt->cwnd;
+	if (result >= 0 && cwnd <= xprt->cong) {
+		/* The (cwnd >> 1) term makes sure
+		 * the result gets rounded properly. */
+
+xprt_adjust_cwnd(struct rpc_xprt *xprt, int result)	dprintk("RPC:      cong %ld, cwnd was %ld, now %ld\n",
+			xprt->cong, xprt->cwnd, cwnd);
+	xprt->cwnd = cwnd;
+	__xprt_put_cong(xprt, req);
+}
+
+/**
+
+void xprt_complete_rqst(struct rpc_xprt *xprt, struct rpc_rqst *req, int copied)	/* Adjust congestion window */
+	if (!xprt->nocong) {
+		unsigned timer = task->tk_msg.rpc_proc->p_timer;
+		xprt_adjust_cwnd(xprt, copied);
+		__xprt_put_cong(xprt, req);
+		xprt_adjust_cwnd(task, copied);
+		if (timer) {
+			if (req->rq_ntrans == 1)
+				rpc_update_rtt(clnt->cl_rtt, timer,
+
+void xprt_complete_rqst(struct rpc_xprt *xprt, struct rpc_rqst *req, int copied)	return;
+}
+
+/*
+ * RPC receive timeout handler.
+ */
+static void
+xprt_timer(struct rpc_task *task)
+static void xprt_timer(struct rpc_task *task)
+{
+	struct rpc_rqst	*req = task->tk_rqstp;
+	struct rpc_rqst *req = task->tk_rqstp;
+	struct rpc_xprt *xprt = req->rq_xprt;
+
+	spin_lock(&xprt->transport_lock);
+	if (req->rq_received)
+		goto out;
+
+	xprt_adjust_cwnd(req->rq_xprt, -ETIMEDOUT);
+	__xprt_put_cong(xprt, req);
+	dprintk("RPC: %4d xprt_timer\n", task->tk_pid);
+
+	dprintk("RPC: %4d xprt_timer (%s request)\n",
+		task->tk_pid, req ? "pending" : "backlogged");
+
+	task->tk_status  = -ETIMEDOUT;
+out:
+	spin_lock(&xprt->transport_lock);
+	if (!req->rq_received) {
+		if (xprt->ops->timer)
+			xprt->ops->timer(task);
+		task->tk_status = -ETIMEDOUT;
+	}
+	task->tk_timeout = 0;
+	rpc_wake_up_task(task);
+	spin_unlock(&xprt->transport_lock);
+
+static void xs_tcp_set_buffer_size(struct rpc_xprt *xprt)	return;
+}
+
+/**
+ * xs_udp_timer - called when a retransmit timeout occurs on a UDP transport
+ * @task: task that timed out
+ *
+ * Adjust the congestion window after a retransmit timeout has occurred.
+ */
+static void xs_udp_timer(struct rpc_task *task)
+{
+	xprt_adjust_cwnd(task, -ETIMEDOUT);
+}
+
+static int xs_bindresvport(struct rpc_xprt *xprt, struct socket *sock)
+{
+	struct sockaddr_in myaddr = {
+
+static struct rpc_xprt_ops xs_udp_ops = {	.connect		= xs_connect,
+	.send_request		= xs_udp_send_request,
+	.set_retrans_timeout	= xprt_set_retrans_timeout_rtt,
+	.timer			= xs_udp_timer,
+	.close			= xs_close,
+	.destroy		= xs_destroy,
+};
+
+

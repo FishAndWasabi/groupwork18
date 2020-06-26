@@ -1,0 +1,138 @@
+static int cache_create(struct cache_args *ca, struct cache **result)
+	ti->num_discard_bios = 1;
+	ti->discards_supported = true;
+	ti->split_discard_bios = false;
+
+	ti->per_io_data_size = sizeof(struct per_bio_data);
+
+
+static void configure_discard_support(struct raid_set *rs)		}
+	}
+
+	/*
+	 * RAID1 and RAID10 personalities require bio splitting,
+	 * RAID0/4/5/6 don't and process large discard bios properly.
+	 */
+	ti->split_discard_bios = !!(rs_is_raid1(rs) || rs_is_raid10(rs));
+	ti->num_discard_bios = 1;
+}
+
+
+static void raid_io_hints(struct dm_target *ti, struct queue_limits *limits)
+	blk_limits_io_min(limits, chunk_size);
+	blk_limits_io_opt(limits, chunk_size * mddev_data_stripes(rs));
+
+	/*
+	 * RAID1 and RAID10 personalities require bio splitting,
+	 * RAID0/4/5/6 don't and process large discard bios properly.
+	 */
+	if (rs_is_raid1(rs) || rs_is_raid10(rs)) {
+		limits->discard_granularity = chunk_size;
+		limits->max_discard_sectors = chunk_size;
+	}
+}
+
+static void raid_postsuspend(struct dm_target *ti)
+
+static int thin_ctr(struct dm_target *ti, unsigned argc, char **argv)	if (tc->pool->pf.discard_enabled) {
+		ti->discards_supported = true;
+		ti->num_discard_bios = 1;
+		ti->split_discard_bios = false;
+	}
+
+	mutex_unlock(&dm_thin_pool_table.mutex);
+
+static int dmz_ctr(struct dm_target *ti, unsigned int argc, char **argv)	ti->per_io_data_size = sizeof(struct dmz_bioctx);
+	ti->flush_supported = true;
+	ti->discards_supported = true;
+	ti->split_discard_bios = true;
+
+	/* The exposed capacity is the number of chunks that can be mapped */
+	ti->len = (sector_t)dmz_nr_chunks(dmz->metadata) << dev->zone_nr_sectors_shift;
+
+static unsigned get_num_write_zeroes_bios(struct dm_target *ti)	return ti->num_write_zeroes_bios;
+}
+
+typedef bool (*is_split_required_fn)(struct dm_target *ti);
+
+static bool is_split_required_for_discard(struct dm_target *ti)
+{
+	return ti->split_discard_bios;
+}
+
+static int __send_changing_extent_only(struct clone_info *ci, struct dm_target *ti,
+				       unsigned num_bios, bool is_split_required)
+				       unsigned num_bios)
+{
+	unsigned len;
+	unsigned len = ci->sector_count;
+
+	/*
+	 * Even though the device advertised support for this type of
+
+static int __send_changing_extent_only(struct clone_info *ci, struct dm_target *	if (!num_bios)
+		return -EOPNOTSUPP;
+
+	if (!is_split_required)
+		len = min((sector_t)ci->sector_count, max_io_len_target_boundary(ci->sector, ti));
+	else
+		len = min((sector_t)ci->sector_count, max_io_len(ci->sector, ti));
+
+	__send_duplicate_bios(ci, ti, num_bios, &len);
+
+	ci->sector += len;
+
+static int __send_changing_extent_only(struct clone_info *ci, struct dm_target *
+static int __send_discard(struct clone_info *ci, struct dm_target *ti)
+{
+	return __send_changing_extent_only(ci, ti, get_num_discard_bios(ti),
+					   is_split_required_for_discard(ti));
+	return __send_changing_extent_only(ci, ti, get_num_discard_bios(ti));
+}
+
+static int __send_secure_erase(struct clone_info *ci, struct dm_target *ti)
+{
+	return __send_changing_extent_only(ci, ti, get_num_secure_erase_bios(ti), false);
+	return __send_changing_extent_only(ci, ti, get_num_secure_erase_bios(ti));
+}
+
+static int __send_write_same(struct clone_info *ci, struct dm_target *ti)
+{
+	return __send_changing_extent_only(ci, ti, get_num_write_same_bios(ti), false);
+	return __send_changing_extent_only(ci, ti, get_num_write_same_bios(ti));
+}
+
+static int __send_write_zeroes(struct clone_info *ci, struct dm_target *ti)
+{
+	return __send_changing_extent_only(ci, ti, get_num_write_zeroes_bios(ti), false);
+	return __send_changing_extent_only(ci, ti, get_num_write_zeroes_bios(ti));
+}
+
+static bool is_abnormal_io(struct bio *bio)
+
+struct dm_target {	 * whether or not its underlying devices have support.
+	 */
+	bool discards_supported:1;
+
+	/*
+	 * Set if the target required discard bios to be split
+	 * on max_io_len boundary.
+	 */
+	bool split_discard_bios:1;
+};
+
+/* Each target can link one of these into the table */
+
+enum {#define DM_DEV_SET_GEOMETRY	_IOWR(DM_IOCTL, DM_DEV_SET_GEOMETRY_CMD, struct dm_ioctl)
+
+#define DM_VERSION_MAJOR	4
+#define DM_VERSION_MINOR	39
+#define DM_VERSION_MINOR	40
+#define DM_VERSION_PATCHLEVEL	0
+#define DM_VERSION_EXTRA	"-ioctl (2018-04-03)"
+#define DM_VERSION_EXTRA	"-ioctl (2019-01-18)"
+
+/* Status bits */
+#define DM_READONLY_FLAG	(1 << 0) /* In/Out */
+
+

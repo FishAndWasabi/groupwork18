@@ -1,0 +1,96 @@
+int iwl_run_init_mvm_ucode(struct iwl_mvm *mvm, bool read_nvm)
+	lockdep_assert_held(&mvm->mutex);
+
+	if (WARN_ON_ONCE(mvm->init_ucode_complete))
+	if (WARN_ON_ONCE(mvm->init_ucode_complete || mvm->calibrating))
+		return 0;
+
+	iwl_init_notification_wait(&mvm->notif_wait,
+
+int iwl_run_init_mvm_ucode(struct iwl_mvm *mvm, bool read_nvm)		goto out;
+	}
+
+	mvm->calibrating = true;
+
+	/* Send TX valid antennas before triggering calibrations */
+	ret = iwl_send_tx_ant_cfg(mvm, mvm->fw->valid_tx_ant);
+	if (ret)
+
+int iwl_run_init_mvm_ucode(struct iwl_mvm *mvm, bool read_nvm)			MVM_UCODE_CALIB_TIMEOUT);
+	if (!ret)
+		mvm->init_ucode_complete = true;
+
+	if (ret && iwl_mvm_is_radio_killed(mvm)) {
+		IWL_DEBUG_RF_KILL(mvm, "RFKILL while calibrating.\n");
+		ret = 1;
+	}
+	goto out;
+
+error:
+	iwl_remove_notification(&mvm->notif_wait, &calib_wait);
+out:
+	mvm->calibrating = false;
+	if (iwlmvm_mod_params.init_dbg && !mvm->nvm_data) {
+		/* we want to debug INIT and we have no NVM - fake */
+		mvm->nvm_data = kzalloc(sizeof(struct iwl_nvm_data) +
+
+static void iwl_mvm_restart_cleanup(struct iwl_mvm *mvm)
+	mvm->scan_status = IWL_MVM_SCAN_NONE;
+	mvm->ps_disabled = false;
+	mvm->calibrating = false;
+
+	/* just in case one was running */
+	ieee80211_remain_on_channel_expired(mvm->hw);
+
+struct iwl_mvm {	enum iwl_ucode_type cur_ucode;
+	bool ucode_loaded;
+	bool init_ucode_complete;
+	bool calibrating;
+	u32 error_event_table;
+	u32 log_event_table;
+	u32 umac_error_event_table;
+
+void iwl_mvm_set_hw_ctkill_state(struct iwl_mvm *mvm, bool state)static bool iwl_mvm_set_hw_rfkill_state(struct iwl_op_mode *op_mode, bool state)
+{
+	struct iwl_mvm *mvm = IWL_OP_MODE_GET_MVM(op_mode);
+	bool calibrating = ACCESS_ONCE(mvm->calibrating);
+
+	if (state)
+		set_bit(IWL_MVM_STATUS_HW_RFKILL, &mvm->status);
+
+static bool iwl_mvm_set_hw_rfkill_state(struct iwl_op_mode *op_mode, bool state)
+	wiphy_rfkill_set_hw_state(mvm->hw->wiphy, iwl_mvm_is_radio_killed(mvm));
+
+	return state && mvm->cur_ucode != IWL_UCODE_INIT;
+	/* iwl_run_init_mvm_ucode is waiting for results, abort it */
+	if (calibrating)
+		iwl_abort_notification_waits(&mvm->notif_wait);
+
+	/*
+	 * Stop the device if we run OPERATIONAL firmware or if we are in the
+	 * middle of the calibrations.
+	 */
+	return state && (mvm->cur_ucode != IWL_UCODE_INIT || calibrating);
+}
+
+static void iwl_mvm_free_skb(struct iwl_op_mode *op_mode, struct sk_buff *skb)
+
+static void iwl_trans_pcie_stop_device(struct iwl_trans *trans)	 * restart. So don't process again if the device is
+	 * already dead.
+	 */
+	if (test_bit(STATUS_DEVICE_ENABLED, &trans->status)) {
+	if (test_and_clear_bit(STATUS_DEVICE_ENABLED, &trans->status)) {
+		IWL_DEBUG_INFO(trans, "DEVICE_ENABLED bit was set and is now cleared\n");
+		iwl_pcie_tx_stop(trans);
+		iwl_pcie_rx_stop(trans);
+
+
+static void iwl_trans_pcie_stop_device(struct iwl_trans *trans)	/* clear all status bits */
+	clear_bit(STATUS_SYNC_HCMD_ACTIVE, &trans->status);
+	clear_bit(STATUS_INT_ENABLED, &trans->status);
+	clear_bit(STATUS_DEVICE_ENABLED, &trans->status);
+	clear_bit(STATUS_TPOWER_PMI, &trans->status);
+	clear_bit(STATUS_RFKILL, &trans->status);
+
+
+
