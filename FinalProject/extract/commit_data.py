@@ -34,20 +34,18 @@ import pandas as pd
 from tools import CommitsFeatureExtractor, error_log
 
 
-bug_fix = json.load(open('../data/odata/prepare_data/all_fix_bug_commit@202006220401.json', 'r'))
+
+bug_fixs = json.load(open('../data/prepare_data/all_fix_bug_commits@202006220401.json','r'))
 result = pd.DataFrame(columns=['bug', 'fix', 'fix_distance', 'find_bug_time', 'fix_bug_time'])
 
 # Select sample
 seed = 0
 random.seed(seed)
-sample = random.sample(list(bug_fix.keys()), 1000)
-
-store_path = '../data/odata/code&commit/commit_{}.csv'.format(seed)
-code_dir = '../data/odata/code&commit/code_content_{}/'.format(seed)
+sample = random.sample(list(bug_fixs.keys()), 1000)
 
 for bug in sample:
     tmp = {}
-    fix = bug_fix[bug]
+    fix = bug_fixs[bug]
     try:
         extractor = CommitsFeatureExtractor(bug, fix)
         commit_lists = extractor.get_commits_lists()
@@ -62,14 +60,14 @@ for bug in sample:
         tmp['fix_distance'] = fix_distance
         tmp['find_bug_time'] = find_bug_time
         tmp['fix_bug_time']= fix_bug_time
-        with open(code_dir+'{}'.format(bug),'w') as f:
+        with open('../data/codes/{}'.format(bug),'w') as f:
             f.write(code)
         result = result.append([tmp], ignore_index=True)
     except Exception as err:
         error_message = """{time} - Error: {err}\n Happen in: Bug commit-{bug} , Fix commit-{fix}\n""".format(time=time.strftime('%a %b %d %H:%M:%S %Y %z',time.localtime()),err=str(err),bug=bug,fix=fix)
         error_log(error_message)
     finally:
-        result.to_csv(store_path, encoding='utf-8', index=False)
+        result.to_csv('../data/sample_commits@{}.csv'.format(seed), encoding='utf-8', index=False)
 
 
 
