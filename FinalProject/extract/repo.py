@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__author__ = "Group No.18 in DSP of Lanzhou University: Yuming Chen, Huiyi Liu"
+__author__ = "Group No.18 in DSP of Lanzhou University: Yuming Chen, Huiyi Liu, Jiyang Xing, Qiaoyuan Yang, Shijie Ma"
 __copyright__ = "Copyright 2020, Study Project in Lanzhou University , China"
 __license__ = "GPL V3"
-__version__ = "0.1"
-__maintainer__ = ["Yuming Chen", "Huiyi Liu"]
-__email__ = ["chenym18@lzu.edu.cn","liuhuiyi18@lzu.edu.cn"]
+__maintainer__ = "Yuming Chen"
+__email__ = ["chenym18@lzu.edu.cn", "liuhuiyi18@lzu.edu.cn", "xinjy18@lzu.edu.cn", "yangqy2018@lzu.edu.cn",
+             " mashj2018@lzu.edu.cn"]
 __status__ = "Experimental"
 
 import os
@@ -48,8 +48,6 @@ class Rep:
         try:
             outs, errs = p.communicate()
             if p.returncode:
-                print('Invalid Reversion')
-                print(outs)
                 raise CalledProcessError(p.returncode, cmd) from None
         except TimeoutExpired:
             p.kill()
