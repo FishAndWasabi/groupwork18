@@ -1,0 +1,456 @@
+override LDFLAGS =override MAKEFLAGS =
+endif
+
+BUILD := $(O)
+ifndef BUILD
+  BUILD := $(KBUILD_OUTPUT)
+endif
+ifndef BUILD
+  BUILD := $(shell pwd)
+endif
+
+export BUILD
+all:
+	for TARGET in $(TARGETS); do \
+		make -C $$TARGET; \
+	for TARGET in $(TARGETS); do		\
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		mkdir $$BUILD_TARGET  -p;	\
+		make OUTPUT=$$BUILD_TARGET -C $$TARGET;\
+	done;
+
+run_tests: all
+	for TARGET in $(TARGETS); do \
+		make -C $$TARGET run_tests; \
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		make OUTPUT=$$BUILD_TARGET -C $$TARGET run_tests;\
+	done;
+
+hotplug:
+	for TARGET in $(TARGETS_HOTPLUG); do \
+		make -C $$TARGET; \
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		make OUTPUT=$$BUILD_TARGET -C $$TARGET;\
+	done;
+
+run_hotplug: hotplug
+	for TARGET in $(TARGETS_HOTPLUG); do \
+		make -C $$TARGET run_full_test; \
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		make OUTPUT=$$BUILD_TARGET -C $$TARGET run_full_test;\
+	done;
+
+clean_hotplug:
+	for TARGET in $(TARGETS_HOTPLUG); do \
+		make -C $$TARGET clean; \
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		make OUTPUT=$$BUILD_TARGET -C $$TARGET clean;\
+	done;
+
+run_pstore_crash:
+
+ifdef INSTALL_PATH	@# Ask all targets to install their files
+	mkdir -p $(INSTALL_PATH)
+	for TARGET in $(TARGETS); do \
+		make -C $$TARGET INSTALL_PATH=$(INSTALL_PATH)/$$TARGET install; \
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		make OUTPUT=$$BUILD_TARGET -C $$TARGET INSTALL_PATH=$(INSTALL_PATH)/$$TARGET install; \
+	done;
+
+	@# Ask all targets to emit their test scripts
+
+ifdef INSTALL_PATH	echo "ROOT=\$$PWD" >> $(ALL_SCRIPT)
+
+	for TARGET in $(TARGETS); do \
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		echo "echo ; echo Running tests in $$TARGET" >> $(ALL_SCRIPT); \
+		echo "echo ========================================" >> $(ALL_SCRIPT); \
+		echo "cd $$TARGET" >> $(ALL_SCRIPT); \
+		make -s --no-print-directory -C $$TARGET emit_tests >> $(ALL_SCRIPT); \
+		make -s --no-print-directory OUTPUT=$$BUILD_TARGET -C $$TARGET emit_tests >> $(ALL_SCRIPT); \
+		echo "cd \$$ROOT" >> $(ALL_SCRIPT); \
+	done;
+
+
+endif
+clean:
+	for TARGET in $(TARGETS); do \
+		make -C $$TARGET clean; \
+		BUILD_TARGET=$$BUILD/$$TARGET;	\
+		make OUTPUT=$$BUILD_TARGET -C $$TARGET clean;\
+	done;
+
+.PHONY: install
+
+TEST_GEN_FILES := execveat.symlink execveat.denatured script subdir# Makefile is a run-time dependency, since it's accessed by the execveat test
+TEST_FILES := Makefile
+
+EXTRA_CLEAN := subdir.moved execveat.moved xxxxx*
+EXTRA_CLEAN := $(OUTPUT)/subdir.moved $(OUTPUT)/execveat.moved $(OUTPUT)/xxxxx*
+
+include ../lib.mk
+
+subdir:
+$(OUTPUT)/subdir:
+	mkdir -p $@
+script:
+$(OUTPUT)/script:
+	echo '#!/bin/sh' > $@
+	echo 'exit $$*' >> $@
+	chmod +x $@
+execveat.symlink: execveat
+	ln -s -f $< $@
+execveat.denatured: execveat
+$(OUTPUT)/execveat.symlink: $(OUTPUT)/execveat
+	cd $(OUTPUT) && ln -s -f $(shell basename $<) $(shell basename $@)
+$(OUTPUT)/execveat.denatured: $(OUTPUT)/execveat
+	cp $< $@
+	chmod -x $@
+
+
+all:
+TEST_PROGS := ftracetest
+TEST_FILES := test.d
+EXTRA_CLEAN := logs/*
+EXTRA_CLEAN := $(OUTPUT)/logs/*
+
+include ../lib.mk
+
+SUBDIRS := functionalTEST_PROGS := run.sh
+
+.PHONY: all clean
+all:
+	for DIR in $(SUBDIRS); do $(MAKE) -C $$DIR $@ ; done
+
+include ../lib.mk
+
+all:
+	for DIR in $(SUBDIRS); do		\
+		BUILD_TARGET=$$OUTPUT/$$DIR;	\
+		mkdir $$BUILD_TARGET  -p;	\
+		make OUTPUT=$$BUILD_TARGET -C $$DIR $@;\
+	done
+
+override define RUN_TESTS
+	./run.sh
+	@if [ `dirname $(OUTPUT)` = $(PWD) ]; then ./run.sh; fi
+endef
+
+override define INSTALL_RULE
+
+override define INSTALL_RULE	install -t $(INSTALL_PATH) $(TEST_PROGS) $(TEST_PROGS_EXTENDED) $(TEST_FILES)
+
+	@for SUBDIR in $(SUBDIRS); do \
+		$(MAKE) -C $$SUBDIR INSTALL_PATH=$(INSTALL_PATH)/$$SUBDIR install; \
+		BUILD_TARGET=$$OUTPUT/$$SUBDIR;	\
+		mkdir $$BUILD_TARGET  -p;	\
+		$(MAKE) OUTPUT=$$BUILD_TARGET -C $$SUBDIR INSTALL_PATH=$(INSTALL_PATH)/$$SUBDIR install; \
+	done;
+endef
+
+
+override define EMIT_TESTSendef
+
+clean:
+	for DIR in $(SUBDIRS); do $(MAKE) -C $$DIR $@ ; done
+	for DIR in $(SUBDIRS); do		\
+		BUILD_TARGET=$$OUTPUT/$$DIR;	\
+		mkdir $$BUILD_TARGET  -p;	\
+		make OUTPUT=$$BUILD_TARGET -C $$DIR $@;\
+	done
+
+CFLAGS += -I../../../../usr/include/
+TEST_GEN_PROGS := kcmp_test
+
+EXTRA_CLEAN := kcmp-test-file
+EXTRA_CLEAN := $(OUTPUT)/kcmp-test-file
+
+include ../lib.mk
+
+
+CC := $(CROSS_COMPILE)gcc
+define RUN_TESTS
+	@for TEST in $(TEST_GEN_PROGS) $(TEST_PROGS); do \
+		(./$$TEST && echo "selftests: $$TEST [PASS]") || echo "selftests: $$TEST [FAIL]"; \
+		BASENAME_TEST=`basename $$TEST`;	\
+		cd `dirname $$TEST`; (./$$BASENAME_TEST && echo "selftests: $$BASENAME_TEST [PASS]") || echo "selftests:  $$BASENAME_TEST [FAIL]"; cd -;\
+	done;
+endef
+
+
+endif
+define EMIT_TESTS
+	@for TEST in $(TEST_GEN_PROGS) $(TEST_PROGS); do \
+		echo "(./$$TEST && echo \"selftests: $$TEST [PASS]\") || echo \"selftests: $$TEST [FAIL]\""; \
+		BASENAME_TEST=`basename $$TEST`;	\
+		echo "(./$$BASENAME_TEST && echo \"selftests: $$BASENAME_TEST [PASS]\") || echo \"selftests: $$BASENAME_TEST [FAIL]\""; \
+	done;
+endef
+
+emit_tests:
+	$(EMIT_TESTS)
+
+TEST_GEN_PROGS := $(patsubst %,$(OUTPUT)/%,$(TEST_GEN_PROGS))
+TEST_GEN_FILES := $(patsubst %,$(OUTPUT)/%,$(TEST_GEN_FILES))
+
+all: $(TEST_GEN_PROGS) $(TEST_GEN_PROGS_EXTENDED) $(TEST_GEN_FILES)
+
+clean:
+	$(RM) -r $(TEST_GEN_PROGS) $(TEST_GEN_PROGS_EXTENDED) $(TEST_GEN_FILES) $(EXTRA_CLEAN)
+
+%: %.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@ $^
+$(OUTPUT)/%:%.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) $< -o $@
+
+$(OUTPUT)/%.o:%.S
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+$(OUTPUT)/%:%.S
+	$(CC) $(ASFLAGS) $< -o $@
+
+.PHONY: run_tests all clean install emit_tests
+
+endifall: $(SUB_DIRS)
+
+$(SUB_DIRS):
+	$(MAKE) -k -C $@ all
+	BUILD_TARGET=$$OUTPUT/$@; mkdir -p $$BUILD_TARGET; $(MAKE) OUTPUT=$$BUILD_TARGET -k -C $@ all
+
+include ../lib.mk
+
+override define RUN_TESTS
+	@for TARGET in $(SUB_DIRS); do \
+		$(MAKE) -C $$TARGET run_tests; \
+		BUILD_TARGET=$$OUTPUT/$$TARGET;	\
+		$(MAKE) OUTPUT=$$BUILD_TARGET -C $$TARGET run_tests;\
+	done;
+endef
+
+override define INSTALL_RULE
+	@for TARGET in $(SUB_DIRS); do \
+		$(MAKE) -C $$TARGET install; \
+		BUILD_TARGET=$$OUTPUT/$$TARGET;	\
+		$(MAKE) OUTPUT=$$BUILD_TARGET -C $$TARGET install;\
+	done;
+endef
+
+override define EMIT_TESTS
+	@for TARGET in $(SUB_DIRS); do \
+		$(MAKE) -s -C $$TARGET emit_tests; \
+		BUILD_TARGET=$$OUTPUT/$$TARGET;	\
+		$(MAKE) OUTPUT=$$BUILD_TARGET -s -C $$TARGET emit_tests;\
+	done;
+endef
+
+clean:
+	@for TARGET in $(SUB_DIRS); do \
+		$(MAKE) -C $$TARGET clean; \
+	done;
+		BUILD_TARGET=$$OUTPUT/$$TARGET;	\
+		$(MAKE) OUTPUT=$$BUILD_TARGET -C $$TARGET clean;\ done;
+	rm -f tags
+
+tags:
+
+$(TEST_GEN_PROGS): ../harness.c
+include ../../lib.mk
+
+context_switch: ../utils.c
+context_switch: CFLAGS += -maltivec -mvsx -mabi=altivec
+context_switch: LDLIBS += -lpthread
+$(OUTPUT)/context_switch: ../utils.c
+$(OUTPUT)/context_switch: CFLAGS += -maltivec -mvsx -mabi=altivec
+$(OUTPUT)/context_switch: LDLIBS += -lpthread
+
+EXTRA_SOURCES := validate.c ../harness.c
+include ../../lib.mk
+
+copyuser_64:     CPPFLAGS += -D COPY_LOOP=test___copy_tofrom_user_base
+copyuser_power7: CPPFLAGS += -D COPY_LOOP=test___copy_tofrom_user_power7
+memcpy_64:       CPPFLAGS += -D COPY_LOOP=test_memcpy
+memcpy_power7:   CPPFLAGS += -D COPY_LOOP=test_memcpy_power7
+$(OUTPUT)/copyuser_64:     CPPFLAGS += -D COPY_LOOP=test___copy_tofrom_user_base
+$(OUTPUT)/copyuser_power7: CPPFLAGS += -D COPY_LOOP=test___copy_tofrom_user_power7
+$(OUTPUT)/memcpy_64:       CPPFLAGS += -D COPY_LOOP=test_memcpy
+$(OUTPUT)/memcpy_power7:   CPPFLAGS += -D COPY_LOOP=test_memcpy_power7
+
+$(TEST_GEN_PROGS): $(EXTRA_SOURCES)
+
+TEST_GEN_PROGS := dscr_default_test dscr_explicit_test dscr_user_test	\
+include ../../lib.mk
+
+dscr_default_test: LDLIBS += -lpthread
+$(OUTPUT)/dscr_default_test: LDLIBS += -lpthread
+
+$(TEST_GEN_PROGS): ../harness.c
+
+include ../../lib.mk$(TEST_GEN_PROGS): ../harness.c
+$(TEST_GEN_PROGS): CFLAGS += -O2 -g -pthread -m64 -maltivec
+
+fpu_syscall: fpu_asm.S
+fpu_preempt: fpu_asm.S
+fpu_signal:  fpu_asm.S
+$(OUTPUT)/pu_syscall: fpu_asm.S
+$(OUTPUT)/pu_preempt: fpu_asm.S
+$(OUTPUT)/pu_signal:  fpu_asm.S
+
+vmx_syscall: vmx_asm.S
+vmx_preempt: vmx_asm.S
+vmx_signal: vmx_asm.S
+$(OUTPUT)/mx_syscall: vmx_asm.S
+$(OUTPUT)/mx_preempt: vmx_asm.S
+$(OUTPUT)/mx_signal: vmx_asm.S
+
+vsx_preempt: CFLAGS += -mvsx
+vsx_preempt: vsx_asm.S
+
+include ../../lib.mk
+$(TEST_GEN_PROGS): ../harness.c
+
+prot_sao: ../utils.c
+$(OUTPUT)/prot_sao: ../utils.c
+
+tempfile:
+	dd if=/dev/zero of=tempfile bs=64k count=1
+$(OUTPUT)/tempfile:
+	dd if=/dev/zero of=$@ bs=64k count=1
+
+
+all: $(TEST_GEN_PROGS) ebb$(TEST_GEN_PROGS): $(EXTRA_SOURCES)
+
+# loop.S can only be built 64-bit
+count_instructions: loop.S count_instructions.c $(EXTRA_SOURCES)
+$(OUTPUT)/count_instructions: loop.S count_instructions.c $(EXTRA_SOURCES)
+	$(CC) $(CFLAGS) -m64 -o $@ $^
+
+per_event_excludes: ../utils.c
+$(OUTPUT)/per_event_excludes: ../utils.c
+
+DEFAULT_RUN_TESTS := $(RUN_TESTS)
+override define RUN_TESTS
+	$(DEFAULT_RUN_TESTS)
+	$(MAKE) -C ebb run_tests
+	TARGET=ebb; BUILD_TARGET=$$OUTPUT/$$TARGET; $(MAKE) OUTPUT=$$BUILD_TARGET -C $$TARGET run_tests
+endef
+
+DEFAULT_EMIT_TESTS := $(EMIT_TESTS)
+override define EMIT_TESTS
+	$(DEFAULT_EMIT_TESTS)
+	$(MAKE) -s -C ebb emit_tests
+	TARGET=ebb; BUILD_TARGET=$$OUTPUT/$$TARGET; $(MAKE) OUTPUT=$$BUILD_TARGET -s -C $$TARGET emit_tests
+endef
+
+DEFAULT_INSTALL_RULE := $(INSTALL_RULE)
+override define INSTALL_RULE
+	$(DEFAULT_INSTALL_RULE)
+	$(MAKE) -C ebb install
+	TARGET=ebb; BUILD_TARGET=$$OUTPUT/$$TARGET; $(MAKE) OUTPUT=$$BUILD_TARGET: -C $$TARGET install
+endef
+
+clean:
+	$(RM) $(TEST_PROGS) loop.o
+	$(MAKE) -C ebb clean
+	$(RM) $(TEST_GEN_PROGS) $(OUTPUT)/loop.o
+	TARGET=ebb; BUILD_TARGET=$$OUTPUT/$$TARGET; $(MAKE) OUTPUT=$$BUILD_TARGET: -C $$TARGET clean
+
+ebb:
+	$(MAKE) -k -C $@ all
+	TARGET=$@; BUILD_TARGET=$$OUTPUT/$$TARGET; mkdir -p $$BUILD_TARGET; $(MAKE) OUTPUT=$$BUILD_TARGET -k -C $$TARGET all
+
+.PHONY: all run_tests clean ebb
+
+include ../../../lib.mk$(TEST_GEN_PROGS): ../../harness.c ../../utils.c ../event.c ../lib.c \
+	       ebb.c ebb_handler.S trace.c busy_loop.S
+
+instruction_count_test: ../loop.S
+$(OUTPUT)/instruction_count_test: ../loop.S
+
+lost_exception_test: ../lib.c
+$(OUTPUT)/lost_exception_test: ../lib.c
+
+TEST_GEN_PROGS := switch_endian_test
+ASFLAGS += -O2 -Wall -g -nostdlib -m64
+
+EXTRA_CLEAN = *.o check-reversed.S
+EXTRA_CLEAN = $(OUTPUT)/*.o $(OUTPUT)/check-reversed.S
+
+include ../../lib.mk
+
+switch_endian_test: check-reversed.S
+$(OUTPUT)/switch_endian_test: $(OUTPUT)/check-reversed.S
+
+check-reversed.o: check.o
+$(OUTPUT)/check-reversed.o: $(OUTPUT)/check.o
+	$(CROSS_COMPILE)objcopy -j .text --reverse-bytes=4 -O binary $< $@
+
+check-reversed.S: check-reversed.o
+$(OUTPUT)/check-reversed.S: $(OUTPUT)/check-reversed.o
+	hexdump -v -e '/1 ".byte 0x%02X\n"' $< > $@
+
+$(TEST_GEN_PROGS): ../harness.c ../utils.c
+CFLAGS += -mhtm
+
+tm-syscall: tm-syscall-asm.S
+tm-syscall: CFLAGS += -I../../../../../usr/include
+tm-tmspr: CFLAGS += -pthread
+$(OUTPUT)/tm-syscall: tm-syscall-asm.S
+$(OUTPUT)/tm-syscall: CFLAGS += -I../../../../../usr/include
+$(OUTPUT)/tm-tmspr: CFLAGS += -pthread
+
+$(SIGNAL_CONTEXT_CHK_TESTS): tm-signal.S
+$(SIGNAL_CONTEXT_CHK_TESTS): CFLAGS += -mhtm -m64 -mvsx
+
+TEST_PROGS := run_vmtests
+include ../lib.mk
+
+userfaultfd: LDLIBS += -lpthread ../../../../usr/include/linux/kernel.h
+mlock-random-test: LDLIBS += -lcap
+$(OUTPUT)/userfaultfd: LDLIBS += -lpthread ../../../../usr/include/linux/kernel.h
+$(OUTPUT)/mlock-random-test: LDLIBS += -lcap
+
+../../../../usr/include/linux/kernel.h:
+	make -C ../../../.. headers_install
+
+TARGETS_C_64BIT_ALL := $(TARGETS_C_BOTHBITS) $(TARGETS_C_64BIT_ONLY)BINARIES_32 := $(TARGETS_C_32BIT_ALL:%=%_32)
+BINARIES_64 := $(TARGETS_C_64BIT_ALL:%=%_64)
+
+BINARIES_32 := $(patsubst %,$(OUTPUT)/%,$(BINARIES_32))
+BINARIES_64 := $(patsubst %,$(OUTPUT)/%,$(BINARIES_64))
+
+CFLAGS := -O2 -g -std=gnu99 -pthread -Wall
+
+UNAME_M := $(shell uname -m)
+
+all_64: $(BINARIES_64)clean:
+	$(RM) $(BINARIES_32) $(BINARIES_64)
+
+$(TARGETS_C_32BIT_ALL:%=%_32): %_32: %.c
+$(BINARIES_32): $(OUTPUT)/%_32: %.c
+	$(CC) -m32 -o $@ $(CFLAGS) $(EXTRA_CFLAGS) $^ -lrt -ldl -lm
+
+$(TARGETS_C_64BIT_ALL:%=%_64): %_64: %.c
+$(BINARIES_64): $(OUTPUT)/%_64: %.c
+	$(CC) -m64 -o $@ $(CFLAGS) $(EXTRA_CFLAGS) $^ -lrt -ldl
+
+# x86_64 users should be encouraged to install 32-bit libraries
+
+warn_32bit_failure:endif
+
+# Some tests have additional dependencies.
+sysret_ss_attrs_64: thunks.S
+ptrace_syscall_32: raw_syscall_helper_32.S
+test_syscall_vdso_32: thunks_32.S
+$(OUTPUT)/sysret_ss_attrs_64: thunks.S
+$(OUTPUT)/ptrace_syscall_32: raw_syscall_helper_32.S
+$(OUTPUT)/test_syscall_vdso_32: thunks_32.S
+
+# check_initial_reg_state is special: it needs a custom entry, and it
+# needs to be static so that its interpreter doesn't destroy its initial
+# state.
+check_initial_reg_state_32: CFLAGS += -Wl,-ereal_start -static
+check_initial_reg_state_64: CFLAGS += -Wl,-ereal_start -static
+$(OUTPUT)/check_initial_reg_state_32: CFLAGS += -Wl,-ereal_start -static
+$(OUTPUT)/check_initial_reg_state_64: CFLAGS += -Wl,-ereal_start -static
+
+

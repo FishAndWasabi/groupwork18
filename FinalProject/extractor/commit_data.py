@@ -34,7 +34,7 @@ import pandas as pd
 from tools import CommitsFeatureExtractor, error_log
 
 
-bug_fix = json.load(open('../data/odata/prepare_data/all_fix_bug_commit@202006220401.json', 'r'))
+bug_fix = json.load(open('../data/rdata/prepare_data/all_fix_bug_commit@202006220401.json', 'r'))
 result = pd.DataFrame(columns=['bug', 'fix', 'fix_distance', 'find_bug_time', 'fix_bug_time'])
 
 # Select sample
@@ -42,8 +42,8 @@ seed = 0
 random.seed(seed)
 sample = random.sample(list(bug_fix.keys()), 1000)
 
-store_path = '../data/odata/code&commit/commit_{}.csv'.format(seed)
-code_dir = '../data/odata/code&commit/code_content_{}/'.format(seed)
+store_path = '../data/rdata/code&commit/commit_{}.csv'.format(seed)
+code_dir = '../data/rdata/code&commit/code_content_{}/'.format(seed)
 
 for bug in sample:
     tmp = {}

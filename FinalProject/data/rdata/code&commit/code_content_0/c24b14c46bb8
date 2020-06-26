@@ -1,0 +1,89 @@
+DEFINE_EVENT(tcp_event_sk_skb, tcp_retransmit_skb,	TP_ARGS(sk, skb)
+);
+
+/*
+ * skb of trace_tcp_send_reset is the skb that caused RST. In case of
+ * active reset, skb should be NULL
+ */
+DEFINE_EVENT(tcp_event_sk_skb, tcp_send_reset,
+
+	TP_PROTO(const struct sock *sk, const struct sk_buff *skb),
+
+	TP_ARGS(sk, skb)
+);
+
+#endif /* _TRACE_TCP_H */
+
+/* This part must be outside protection */
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_update);EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(napi_poll);
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(tcp_send_reset);
+
+#include <crypto/hash.h>
+#include <linux/scatterlist.h>
+
+#include <trace/events/tcp.h>
+
+#ifdef CONFIG_TCP_MD5SIG
+static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
+			       __be32 daddr, __be32 saddr, const struct tcphdr *th);
+
+static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)	 * routing might fail in this case. No choice here, if we choose to force
+	 * input interface, we will misroute in case of asymmetric route.
+	 */
+	if (sk)
+	if (sk) {
+		arg.bound_dev_if = sk->sk_bound_dev_if;
+		trace_tcp_send_reset(sk, skb);
+	}
+
+	BUILD_BUG_ON(offsetof(struct sock, sk_bound_dev_if) !=
+		     offsetof(struct inet_timewait_sock, tw_bound_dev_if));
+
+void tcp_send_active_reset(struct sock *sk, gfp_t priority)	/* Send it off. */
+	if (tcp_transmit_skb(sk, skb, 0, priority))
+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
+
+	/* skb of trace_tcp_send_reset() keeps the skb that caused RST,
+	 * skb here is different to the troublesome skb, so use NULL
+	 */
+	trace_tcp_send_reset(sk, NULL);
+}
+
+/* Send a crossed SYN-ACK during socket establishment.
+
+#include <crypto/hash.h>
+#include <linux/scatterlist.h>
+
+#include <trace/events/tcp.h>
+
+static void	tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb);
+static void	tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+				      struct request_sock *req);
+
+static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb)	int genhash;
+	struct sock *sk1 = NULL;
+#endif
+	int oif;
+	int oif = 0;
+
+	if (th->rst)
+		return;
+
+static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb)		ack_seq = ntohl(th->seq) + th->syn + th->fin + skb->len -
+			  (th->doff << 2);
+
+	oif = sk ? sk->sk_bound_dev_if : 0;
+	if (sk) {
+		oif = sk->sk_bound_dev_if;
+		trace_tcp_send_reset(sk, skb);
+	}
+
+	tcp_v6_send_response(sk, skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
+
+#ifdef CONFIG_TCP_MD5SIG
+
+

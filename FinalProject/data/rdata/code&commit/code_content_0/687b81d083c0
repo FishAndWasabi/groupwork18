@@ -1,0 +1,943 @@
+An I2C bus (controller) driver does:	if (ret)
+		/* handle error */
+
+	of_i2c_register_devices(adapter);
+	/* Enumerate the slave devices behind this bus via ACPI */
+	acpi_i2c_register_devices(adapter);
+
+
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/of_gpio.h>
+#include <linux/of_i2c.h>
+#include <linux/slab.h>
+#include <linux/export.h>
+
+
+ */
+
+#include <linux/i2c.h>
+#include <linux/of_i2c.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/consumer.h>
+#include <drm/drm_encoder_slave.h>
+
+ */
+
+#include <linux/i2c.h>
+#include <linux/of_i2c.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/pinctrl/pinmux.h>
+
+
+#include <linux/module.h>
+#include <linux/of_gpio.h>
+#include <linux/of_i2c.h>
+#include <linux/i2c.h>
+
+#include "drm.h"
+
+
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+#include <linux/platform_data/dma-atmel.h>
+
+static int at91_twi_probe(struct platform_device *pdev)		return rc;
+	}
+
+	of_i2c_register_devices(&dev->adapter);
+
+	dev_info(dev->dev, "AT91 i2c bus driver.\n");
+	return 0;
+}
+
+#include <linux/dma-mapping.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
+#include <linux/of_i2c.h>
+#include <sysdev/fsl_soc.h>
+#include <asm/cpm.h>
+
+
+static int cpm_i2c_probe(struct platform_device *ofdev)	dev_dbg(&ofdev->dev, "hw routines for %s registered.\n",
+		cpm->adap.name);
+
+	/*
+	 * register OF I2C devices
+	 */
+	of_i2c_register_devices(&cpm->adap);
+
+	return 0;
+out_shut:
+	cpm_i2c_shutdown(cpm);
+
+#include <linux/slab.h>
+#include <linux/cpufreq.h>
+#include <linux/gpio.h>
+#include <linux/of_i2c.h>
+#include <linux/of_device.h>
+#include <linux/platform_data/i2c-davinci.h>
+
+
+static int davinci_i2c_probe(struct platform_device *pdev)		dev_err(&pdev->dev, "failure adding adapter\n");
+		goto err_unuse_clocks;
+	}
+	of_i2c_register_devices(adap);
+
+	return 0;
+
+
+#include <linux/err.h>
+#include <linux/interrupt.h>
+#include <linux/of.h>
+#include <linux/of_i2c.h>
+#include <linux/platform_device.h>
+#include <linux/pm.h>
+#include <linux/pm_runtime.h>
+
+static int dw_i2c_probe(struct platform_device *pdev)		dev_err(&pdev->dev, "failure adding adapter\n");
+		return r;
+	}
+	of_i2c_register_devices(adap);
+	acpi_i2c_register_devices(adap);
+
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+
+#include <linux/platform_device.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/of_i2c.h>
+
+struct i2c_gpio_private_data {
+	struct i2c_adapter adap;
+
+static int i2c_gpio_probe(struct platform_device *pdev)	if (ret)
+		goto err_add_bus;
+
+	of_i2c_register_devices(adap);
+
+	platform_set_drvdata(pdev, priv);
+
+	dev_info(&pdev->dev, "using pins %u (SDA) and %u (SCL%s)\n",
+
+#include <linux/slab.h>
+#include <linux/wait.h>
+#include <linux/err.h>
+#include <linux/of_i2c.h>
+
+#if (defined CONFIG_I2C_MUX_GPIO || defined CONFIG_I2C_MUX_GPIO_MODULE) && \
+		defined CONFIG_DMI
+
+static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)		goto exit_free_irq;
+	}
+
+	of_i2c_register_devices(&priv->adapter);
+	i801_probe_optional_slaves(priv);
+	/* We ignore errors - multiplexing is optional */
+	i801_add_mux(priv);
+
+#include <linux/io.h>
+#include <linux/i2c.h>
+#include <linux/of_platform.h>
+#include <linux/of_i2c.h>
+
+#include "i2c-ibm_iic.h"
+
+
+static int iic_probe(struct platform_device *ofdev)	dev_info(&ofdev->dev, "using %s mode\n",
+		 dev->fast_mode ? "fast (400 kHz)" : "standard (100 kHz)");
+
+	/* Now register all the child nodes */
+	of_i2c_register_devices(adap);
+
+	return 0;
+
+error_cleanup:
+
+#include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
+#include <linux/platform_data/i2c-imx.h>
+
+/** Defines ********************************************************************
+
+static int __init i2c_imx_probe(struct platform_device *pdev)		return ret;
+	}
+
+	of_i2c_register_devices(&i2c_imx->adapter);
+
+	/* Set up platform driver data */
+	platform_set_drvdata(pdev, i2c_imx);
+	clk_disable_unprepare(i2c_imx->clk);
+
+#include <linux/sched.h>
+#include <linux/init.h>
+#include <linux/of_platform.h>
+#include <linux/of_i2c.h>
+#include <linux/slab.h>
+
+#include <linux/io.h>
+
+static int fsl_i2c_probe(struct platform_device *op)		dev_err(i2c->dev, "failed to add adapter\n");
+		goto fail_add;
+	}
+	of_i2c_register_devices(&i2c->adap);
+
+	return result;
+
+
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_irq.h>
+#include <linux/of_i2c.h>
+#include <linux/clk.h>
+#include <linux/err.h>
+#include <linux/delay.h>
+
+mv64xxx_i2c_probe(struct platform_device *pd)		goto exit_free_irq;
+	}
+
+	of_i2c_register_devices(&drv_data->adapter);
+
+	return 0;
+
+exit_free_irq:
+
+#include <linux/stmp_device.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
+
+
+static int mxs_i2c_probe(struct platform_device *pdev)		return err;
+	}
+
+	of_i2c_register_devices(adap);
+
+	return 0;
+}
+
+
+#include <linux/pm_runtime.h>
+#include <linux/platform_data/i2c-nomadik.h>
+#include <linux/of.h>
+#include <linux/of_i2c.h>
+#include <linux/pinctrl/consumer.h>
+
+#define DRIVER_NAME "nmk-i2c"
+
+static int nmk_i2c_probe(struct amba_device *adev, const struct amba_id *id)		goto err_add_adap;
+	}
+
+	of_i2c_register_devices(adap);
+
+	pm_runtime_put(&adev->dev);
+
+	return 0;
+
+#include <linux/i2c-ocores.h>
+#include <linux/slab.h>
+#include <linux/io.h>
+#include <linux/of_i2c.h>
+#include <linux/log2.h>
+
+struct ocores_i2c {
+
+static int ocores_i2c_probe(struct platform_device *pdev)	if (pdata) {
+		for (i = 0; i < pdata->num_devices; i++)
+			i2c_new_device(&i2c->adap, pdata->devices + i);
+	} else {
+		of_i2c_register_devices(&i2c->adap);
+	}
+
+	return 0;
+
+#include <linux/interrupt.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/of_i2c.h>
+#include <linux/delay.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+
+static int octeon_i2c_probe(struct platform_device *pdev)	}
+	dev_info(i2c->dev, "version %s\n", DRV_VERSION);
+
+	of_i2c_register_devices(&i2c->adap);
+
+	return 0;
+
+out:
+
+#include <linux/clk.h>
+#include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_i2c.h>
+#include <linux/of_device.h>
+#include <linux/slab.h>
+#include <linux/i2c-omap.h>
+
+omap_i2c_probe(struct platform_device *pdev)	dev_info(dev->dev, "bus %d rev%d.%d at %d kHz\n", adap->nr,
+		 major, minor, dev->speed);
+
+	of_i2c_register_devices(adap);
+
+	pm_runtime_mark_last_busy(dev->dev);
+	pm_runtime_put_autosuspend(dev->dev);
+
+
+#include <linux/err.h>
+#include <linux/clk.h>
+#include <linux/slab.h>
+#include <linux/of_i2c.h>
+
+#define I2C_PNX_TIMEOUT_DEFAULT		10 /* msec */
+#define I2C_PNX_SPEED_KHZ_DEFAULT	100
+
+static int i2c_pnx_probe(struct platform_device *pdev)		goto out_irq;
+	}
+
+	of_i2c_register_devices(&alg_data->adapter);
+
+	dev_dbg(&pdev->dev, "%s: Master at %#8x, irq %d.\n",
+		alg_data->adapter.name, res->start, alg_data->irq);
+
+
+static int i2c_powermac_probe(struct platform_device *dev)	adapter->algo = &i2c_powermac_algorithm;
+	i2c_set_adapdata(adapter, bus);
+	adapter->dev.parent = &dev->dev;
+	adapter->dev.of_node = dev->dev.of_node;
+
+	/* Clear of_node to skip automatic registration of i2c child nodes */
+	adapter->dev.of_node = NULL;
+	rc = i2c_add_adapter(adapter);
+	if (rc) {
+		printk(KERN_ERR "i2c-powermac: Adapter %s registration "
+
+static int i2c_powermac_probe(struct platform_device *dev)
+	printk(KERN_INFO "PowerMac i2c bus %s registered\n", adapter->name);
+
+	/* Cannot use of_i2c_register_devices() due to Apple device-tree
+	 * funkyness
+	 */
+	/* Use custom child registration due to Apple device-tree funkyness */
+	adapter->dev.of_node = dev->dev.of_node;
+	i2c_powermac_register_devices(adapter, bus);
+
+	return 0;
+
+#include <linux/i2c-pxa.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
+#include <linux/platform_device.h>
+#include <linux/err.h>
+#include <linux/clk.h>
+
+static int i2c_pxa_probe(struct platform_device *dev)		printk(KERN_INFO "I2C: Failed to add bus\n");
+		goto eadapt;
+	}
+	of_i2c_register_devices(&i2c->adap);
+
+	platform_set_drvdata(dev, i2c);
+
+
+#include <linux/cpufreq.h>
+#include <linux/slab.h>
+#include <linux/io.h>
+#include <linux/of_i2c.h>
+#include <linux/of_gpio.h>
+#include <linux/pinctrl/consumer.h>
+
+
+static int s3c24xx_i2c_probe(struct platform_device *pdev)		return ret;
+	}
+
+	of_i2c_register_devices(&i2c->adap);
+	platform_set_drvdata(pdev, i2c);
+
+	pm_runtime_enable(&pdev->dev);
+
+#include <linux/platform_device.h>
+#include <linux/interrupt.h>
+#include <linux/i2c.h>
+#include <linux/of_i2c.h>
+#include <linux/err.h>
+#include <linux/pm_runtime.h>
+#include <linux/clk.h>
+
+static int sh_mobile_i2c_probe(struct platform_device *dev)		 "I2C adapter %d with bus speed %lu Hz (L/H=%x/%x)\n",
+		 adap->nr, pd->bus_speed, pd->iccl, pd->icch);
+
+	of_i2c_register_devices(adap);
+	return 0;
+
+ err_all:
+
+#include <linux/slab.h>
+#include <linux/platform_device.h>
+#include <linux/i2c.h>
+#include <linux/of_i2c.h>
+#include <linux/clk.h>
+#include <linux/err.h>
+#include <linux/io.h>
+
+static int i2c_sirfsoc_probe(struct platform_device *pdev)
+	clk_disable(clk);
+
+	of_i2c_register_devices(adap);
+
+	dev_info(&pdev->dev, " I2C adapter ready to operate\n");
+
+	return 0;
+
+#include <linux/clk.h>
+#include <linux/io.h>
+#include <linux/slab.h>
+#include <linux/of_i2c.h>
+
+/* the name of this kernel module */
+#define NAME "stu300"
+
+stu300_probe(struct platform_device *pdev)	platform_set_drvdata(pdev, dev);
+	dev_info(&pdev->dev, "ST DDC I2C @ %p, irq %d\n",
+		 dev->virtbase, dev->irq);
+	of_i2c_register_devices(adap);
+
+	return 0;
+}
+
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/slab.h>
+#include <linux/of_i2c.h>
+#include <linux/of_device.h>
+#include <linux/module.h>
+#include <linux/clk/tegra.h>
+
+static int tegra_i2c_probe(struct platform_device *pdev)		return ret;
+	}
+
+	of_i2c_register_devices(&i2c_dev->adapter);
+
+	return 0;
+}
+
+
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+#include <linux/io.h>
+#include <linux/of_i2c.h>
+
+#define I2C_CONTROL	0x00
+#define I2C_CONTROLS	0x00
+
+static int i2c_versatile_probe(struct platform_device *dev)	ret = i2c_bit_add_numbered_bus(&i2c->adap);
+	if (ret >= 0) {
+		platform_set_drvdata(dev, i2c);
+		of_i2c_register_devices(&i2c->adap);
+		return 0;
+	}
+
+
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_i2c.h>
+#include <linux/of_irq.h>
+#include <linux/platform_device.h>
+
+
+static int wmt_i2c_probe(struct platform_device *pdev)
+	platform_set_drvdata(pdev, i2c_dev);
+
+	of_i2c_register_devices(adap);
+
+	return 0;
+}
+
+
+#include <linux/i2c-xiic.h>
+#include <linux/io.h>
+#include <linux/slab.h>
+#include <linux/of_i2c.h>
+
+#define DRIVER_NAME "xiic-i2c"
+
+
+static int xiic_i2c_probe(struct platform_device *pdev)			i2c_new_device(&i2c->adap, pdata->devices + i);
+	}
+
+	of_i2c_register_devices(&i2c->adap);
+
+	return 0;
+
+add_adapter_failed:
+
+   SMBus 2.0 support by Mark Studebaker <mdsxyz123@yahoo.com> and
+   Jean Delvare <khali@linux-fr.org>
+   Mux support by Rodolfo Giometti <giometti@enneenne.com> and
+   Michael Lawnick <michael.lawnick.ext@nsn.com> */
+   Michael Lawnick <michael.lawnick.ext@nsn.com>
+   OF support is copyright (c) 2008 Jochen Friedrich <jochen@scram.de>
+   (based on a previous patch from Jon Smirl <jonsmirl@gmail.com>) and
+   (c) 2013  Wolfram Sang <wsa@the-dreams.de>
+ */
+
+#include <linux/module.h>
+#include <linux/kernel.h>
+
+#include <linux/init.h>
+#include <linux/idr.h>
+#include <linux/mutex.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_irq.h>
+#include <linux/completion.h>
+#include <linux/hardirq.h>
+#include <linux/irqflags.h>
+
+static void i2c_scan_static_board_info(struct i2c_adapter *adapter)	up_read(&__i2c_board_lock);
+}
+
+/* OF support code */
+
+#if IS_ENABLED(CONFIG_OF)
+static void of_i2c_register_devices(struct i2c_adapter *adap)
+{
+	void *result;
+	struct device_node *node;
+
+	/* Only register child devices if the adapter has a node pointer set */
+	if (!adap->dev.of_node)
+		return;
+
+	dev_dbg(&adap->dev, "of_i2c: walking child nodes\n");
+
+	for_each_available_child_of_node(adap->dev.of_node, node) {
+		struct i2c_board_info info = {};
+		struct dev_archdata dev_ad = {};
+		const __be32 *addr;
+		int len;
+
+		dev_dbg(&adap->dev, "of_i2c: register %s\n", node->full_name);
+
+		if (of_modalias_node(node, info.type, sizeof(info.type)) < 0) {
+			dev_err(&adap->dev, "of_i2c: modalias failure on %s\n",
+				node->full_name);
+			continue;
+		}
+
+		addr = of_get_property(node, "reg", &len);
+		if (!addr || (len < sizeof(int))) {
+			dev_err(&adap->dev, "of_i2c: invalid reg on %s\n",
+				node->full_name);
+			continue;
+		}
+
+		info.addr = be32_to_cpup(addr);
+		if (info.addr > (1 << 10) - 1) {
+			dev_err(&adap->dev, "of_i2c: invalid addr=%x on %s\n",
+				info.addr, node->full_name);
+			continue;
+		}
+
+		info.irq = irq_of_parse_and_map(node, 0);
+		info.of_node = of_node_get(node);
+		info.archdata = &dev_ad;
+
+		if (of_get_property(node, "wakeup-source", NULL))
+			info.flags |= I2C_CLIENT_WAKE;
+
+		request_module("%s%s", I2C_MODULE_PREFIX, info.type);
+
+		result = i2c_new_device(adap, &info);
+		if (result == NULL) {
+			dev_err(&adap->dev, "of_i2c: Failure registering %s\n",
+				node->full_name);
+			of_node_put(node);
+			irq_dispose_mapping(info.irq);
+			continue;
+		}
+	}
+}
+
+static int of_dev_node_match(struct device *dev, void *data)
+{
+	return dev->of_node == data;
+}
+
+/* must call put_device() when done with returned i2c_client device */
+struct i2c_client *of_find_i2c_device_by_node(struct device_node *node)
+{
+	struct device *dev;
+
+	dev = bus_find_device(&i2c_bus_type, NULL, node,
+					 of_dev_node_match);
+	if (!dev)
+		return NULL;
+
+	return i2c_verify_client(dev);
+}
+EXPORT_SYMBOL(of_find_i2c_device_by_node);
+
+/* must call put_device() when done with returned i2c_adapter device */
+struct i2c_adapter *of_find_i2c_adapter_by_node(struct device_node *node)
+{
+	struct device *dev;
+
+	dev = bus_find_device(&i2c_bus_type, NULL, node,
+					 of_dev_node_match);
+	if (!dev)
+		return NULL;
+
+	return i2c_verify_adapter(dev);
+}
+EXPORT_SYMBOL(of_find_i2c_adapter_by_node);
+#else
+static void of_i2c_register_devices(struct i2c_adapter *adap) { }
+#endif /* CONFIG_OF */
+
+static int i2c_do_add_adapter(struct i2c_driver *driver,
+			      struct i2c_adapter *adap)
+{
+
+static int i2c_register_adapter(struct i2c_adapter *adap)
+exit_recovery:
+	/* create pre-declared device nodes */
+	of_i2c_register_devices(adap);
+
+	if (adap->nr < __i2c_first_dynamic_bus_num)
+		i2c_scan_static_board_info(adap);
+
+
+void i2c_del_adapter(struct i2c_adapter *adap)}
+EXPORT_SYMBOL(i2c_del_adapter);
+
+
+/* ------------------------------------------------------------------------- */
+
+int i2c_for_each_dev(void *data, int (*fn)(struct device *, void *))
+
+#include <linux/i2c.h>
+#include <linux/i2c-mux.h>
+#include <linux/of.h>
+#include <linux/of_i2c.h>
+
+/* multiplexer per channel data */
+struct i2c_mux_priv {
+
+struct i2c_adapter *i2c_add_mux_adapter(struct i2c_adapter *parent,	dev_info(&parent->dev, "Added multiplexed i2c bus %d\n",
+		 i2c_adapter_id(&priv->adap));
+
+	of_i2c_register_devices(&priv->adap);
+
+	return &priv->adap;
+}
+EXPORT_SYMBOL_GPL(i2c_add_mux_adapter);
+
+#include <linux/i2c-mux.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/of_i2c.h>
+#include <linux/of_gpio.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/gpio.h>
+#include <linux/of_i2c.h>
+#include <linux/of_gpio.h>
+
+struct gpiomux {
+
+#include <linux/i2c-mux.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/of_i2c.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/i2c-mux-pinctrl.h>
+#include <linux/platform_device.h>
+
+
+#include <linux/clk.h>
+#include <linux/module.h>
+#include <linux/of_i2c.h>
+#include <linux/i2c.h>
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/slab.h>
+
+static int fimc_is_i2c_probe(struct platform_device *pdev)	pm_runtime_enable(&pdev->dev);
+	pm_runtime_enable(&i2c_adap->dev);
+
+	of_i2c_register_devices(i2c_adap);
+
+	return 0;
+}
+
+
+#include <linux/interrupt.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/of_i2c.h>
+#include <linux/i2c.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
+
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/types.h>
+
+config OF_IRQ	def_bool y
+	depends on !SPARC
+
+config OF_I2C
+	def_tristate I2C
+	depends on I2C
+	help
+	  OpenFirmware I2C accessors
+
+config OF_NET
+	depends on NETDEVICES
+	def_bool y
+
+obj-$(CONFIG_OF_FLATTREE) += fdt.oobj-$(CONFIG_OF_PROMTREE) += pdt.o
+obj-$(CONFIG_OF_ADDRESS)  += address.o
+obj-$(CONFIG_OF_IRQ)    += irq.o
+obj-$(CONFIG_OF_I2C)	+= of_i2c.o
+obj-$(CONFIG_OF_NET)	+= of_net.o
+obj-$(CONFIG_OF_SELFTEST) += selftest.o
+obj-$(CONFIG_OF_MDIO)	+= of_mdio.o
+
+/*
+ * OF helpers for the I2C API
+ *
+ * Copyright (c) 2008 Jochen Friedrich <jochen@scram.de>
+ *
+ * Based on a previous patch from Jon Smirl <jonsmirl@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+#include <linux/i2c.h>
+#include <linux/irq.h>
+#include <linux/of.h>
+#include <linux/of_i2c.h>
+#include <linux/of_irq.h>
+#include <linux/module.h>
+
+void of_i2c_register_devices(struct i2c_adapter *adap)
+{
+	void *result;
+	struct device_node *node;
+
+	/* Only register child devices if the adapter has a node pointer set */
+	if (!adap->dev.of_node)
+		return;
+
+	dev_dbg(&adap->dev, "of_i2c: walking child nodes\n");
+
+	for_each_available_child_of_node(adap->dev.of_node, node) {
+		struct i2c_board_info info = {};
+		struct dev_archdata dev_ad = {};
+		const __be32 *addr;
+		int len;
+
+		dev_dbg(&adap->dev, "of_i2c: register %s\n", node->full_name);
+
+		if (of_modalias_node(node, info.type, sizeof(info.type)) < 0) {
+			dev_err(&adap->dev, "of_i2c: modalias failure on %s\n",
+				node->full_name);
+			continue;
+		}
+
+		addr = of_get_property(node, "reg", &len);
+		if (!addr || (len < sizeof(int))) {
+			dev_err(&adap->dev, "of_i2c: invalid reg on %s\n",
+				node->full_name);
+			continue;
+		}
+
+		info.addr = be32_to_cpup(addr);
+		if (info.addr > (1 << 10) - 1) {
+			dev_err(&adap->dev, "of_i2c: invalid addr=%x on %s\n",
+				info.addr, node->full_name);
+			continue;
+		}
+
+		info.irq = irq_of_parse_and_map(node, 0);
+		info.of_node = of_node_get(node);
+		info.archdata = &dev_ad;
+
+		if (of_get_property(node, "wakeup-source", NULL))
+			info.flags |= I2C_CLIENT_WAKE;
+
+		request_module("%s%s", I2C_MODULE_PREFIX, info.type);
+
+		result = i2c_new_device(adap, &info);
+		if (result == NULL) {
+			dev_err(&adap->dev, "of_i2c: Failure registering %s\n",
+			        node->full_name);
+			of_node_put(node);
+			irq_dispose_mapping(info.irq);
+			continue;
+		}
+	}
+}
+EXPORT_SYMBOL(of_i2c_register_devices);
+
+static int of_dev_node_match(struct device *dev, void *data)
+{
+        return dev->of_node == data;
+}
+
+/* must call put_device() when done with returned i2c_client device */
+struct i2c_client *of_find_i2c_device_by_node(struct device_node *node)
+{
+	struct device *dev;
+
+	dev = bus_find_device(&i2c_bus_type, NULL, node,
+					 of_dev_node_match);
+	if (!dev)
+		return NULL;
+
+	return i2c_verify_client(dev);
+}
+EXPORT_SYMBOL(of_find_i2c_device_by_node);
+
+/* must call put_device() when done with returned i2c_adapter device */
+struct i2c_adapter *of_find_i2c_adapter_by_node(struct device_node *node)
+{
+	struct device *dev;
+
+	dev = bus_find_device(&i2c_bus_type, NULL, node,
+					 of_dev_node_match);
+	if (!dev)
+		return NULL;
+
+	return i2c_verify_adapter(dev);
+}
+EXPORT_SYMBOL(of_find_i2c_adapter_by_node);
+
+MODULE_LICENSE("GPL");
+
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
+#include <linux/module.h>
+#include <linux/of_i2c.h>
+#include <linux/i2c.h>
+#include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
+#include <linux/spinlock.h>
+
+static inline int i2c_adapter_id(struct i2c_adapter *adap)
+#endif /* I2C */
+
+#if IS_ENABLED(CONFIG_OF)
+/* must call put_device() when done with returned i2c_client device */
+extern struct i2c_client *of_find_i2c_device_by_node(struct device_node *node);
+
+/* must call put_device() when done with returned i2c_adapter device */
+extern struct i2c_adapter *of_find_i2c_adapter_by_node(struct device_node *node);
+
+#else
+
+static inline struct i2c_client *of_find_i2c_device_by_node(struct device_node *node)
+{
+	return NULL;
+}
+
+static inline struct i2c_adapter *of_find_i2c_adapter_by_node(struct device_node *node)
+{
+	return NULL;
+}
+#endif /* CONFIG_OF */
+
+#if IS_ENABLED(CONFIG_ACPI_I2C)
+extern void acpi_i2c_register_devices(struct i2c_adapter *adap);
+#else
+
+/*
+ * Generic I2C API implementation for PowerPC.
+ *
+ * Copyright (c) 2008 Jochen Friedrich <jochen@scram.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+#ifndef __LINUX_OF_I2C_H
+#define __LINUX_OF_I2C_H
+
+#if defined(CONFIG_OF_I2C) || defined(CONFIG_OF_I2C_MODULE)
+#include <linux/i2c.h>
+
+extern void of_i2c_register_devices(struct i2c_adapter *adap);
+
+/* must call put_device() when done with returned i2c_client device */
+extern struct i2c_client *of_find_i2c_device_by_node(struct device_node *node);
+
+/* must call put_device() when done with returned i2c_adapter device */
+extern struct i2c_adapter *of_find_i2c_adapter_by_node(
+						struct device_node *node);
+
+#else
+static inline void of_i2c_register_devices(struct i2c_adapter *adap)
+{
+	return;
+}
+
+static inline struct i2c_client *of_find_i2c_device_by_node(struct device_node *node)
+{
+	return NULL;
+}
+
+/* must call put_device() when done with returned i2c_adapter device */
+static inline struct i2c_adapter *of_find_i2c_adapter_by_node(
+						struct device_node *node)
+{
+	return NULL;
+}
+#endif /* CONFIG_OF_I2C */
+
+#endif /* __LINUX_OF_I2C_H */
+
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_i2c.h>
+#include <linux/i2c.h>
+#include <linux/clk.h>
+#include <sound/soc.h>
+
+
+
+#include <linux/module.h>
+#include <linux/of_platform.h>
+#include <linux/of_i2c.h>
+#include <linux/i2c.h>
+#include <linux/slab.h>
+#include <linux/clk.h>
+#include <sound/soc.h>
+
+

@@ -1,0 +1,39 @@
+config TYPEC_TCPCI	help
+	  Type-C Port Controller driver for TCPCI-compliant controller.
+
+source "drivers/staging/typec/fusb302/Kconfig"
+
+endif
+
+endmenu
+
+fusb302:
+- Find a better logging scheme, at least not having the same debugging/logging
+  code replicated here and in tcpm
+- Find a non-hacky way to coordinate between PM and I2C access
+- Documentation? The FUSB302 datasheet provides information on the chip to help
+  understand the code. But it may still be helpful to have a documentation.
+- We may want to replace the  "fcs,max-snk-microvolt", "fcs,max-snk-microamp",
+  "fcs,max-snk-microwatt" and "fcs,operating-snk-microwatt" device(tree)
+  properties with properties which are part of a generic type-c controller
+  devicetree binding.
+
+config TYPEC_TCPM	  The Type-C Port Controller Manager provides a USB PD and USB Type-C
+	  state machine for use with Type-C Port Controllers.
+
+if TYPEC_TCPM
+
+source "drivers/usb/typec/fusb302/Kconfig"
+
+endif
+
+config TYPEC_WCOVE
+	tristate "Intel WhiskeyCove PMIC USB Type-C PHY driver"
+	depends on ACPI
+
+obj-$(CONFIG_TYPEC)		+= typec.o
+obj-$(CONFIG_TYPEC_TCPM)	+= tcpm.o
+obj-y				+= fusb302/
+obj-$(CONFIG_TYPEC_WCOVE)	+= typec_wcove.o
+obj-$(CONFIG_TYPEC_UCSI)	+= ucsi/
+

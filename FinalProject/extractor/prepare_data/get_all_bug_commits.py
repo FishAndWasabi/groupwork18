@@ -35,7 +35,7 @@ from tools import get_all_fix_bug_commits
 if __name__ == '__main__':
     # Record the time stamp because it is dynamic
     time = '202006220401'
-    store_path = '../data/odata/prepare_data/all_fix_bug_commit@{}.json'.format(time)
+    store_path = '../data/rdata/prepare_data/all_fix_bug_commit@{}.json'.format(time)
     fix_bug_commits = get_all_fix_bug_commits()
     json.dump(fix_bug_commits, open(store_path, 'w'))
 

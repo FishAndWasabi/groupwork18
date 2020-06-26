@@ -1,0 +1,86 @@
+static void dsa_remove_dst(struct dsa_switch_tree *dst)			dsa_switch_destroy(ds);
+	}
+
+	dsa_cpu_port_ethtool_restore(dst->ds[0]);
+	dsa_cpu_port_ethtool_restore(dst->cpu_switch);
+
+	dev_put(dst->master_netdev);
+}
+
+static int dsa_dst_apply(struct dsa_switch_tree *dst)			return err;
+	}
+
+	if (dst->ds[0]) {
+		err = dsa_cpu_port_ethtool_setup(dst->ds[0]);
+	if (dst->cpu_switch) {
+		err = dsa_cpu_port_ethtool_setup(dst->cpu_switch);
+		if (err)
+			return err;
+	}
+
+static void dsa_dst_unapply(struct dsa_switch_tree *dst)		dsa_ds_unapply(dst, ds);
+	}
+
+	if (dst->ds[0])
+		dsa_cpu_port_ethtool_restore(dst->ds[0]);
+	if (dst->cpu_switch)
+		dsa_cpu_port_ethtool_restore(dst->cpu_switch);
+
+	pr_info("DSA: tree %d unapplied\n", dst->tree);
+	dst->applied = false;
+
+static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,					   uint64_t *data)
+{
+	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_switch *ds = dst->ds[0];
+	struct dsa_switch *ds = dst->cpu_switch;
+	s8 cpu_port = dst->cpu_port;
+	int count = 0;
+
+
+static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,static int dsa_cpu_port_get_sset_count(struct net_device *dev, int sset)
+{
+	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_switch *ds = dst->ds[0];
+	struct dsa_switch *ds = dst->cpu_switch;
+	int count = 0;
+
+	if (dst->master_ethtool_ops.get_sset_count)
+
+static void dsa_cpu_port_get_strings(struct net_device *dev,				     uint32_t stringset, uint8_t *data)
+{
+	struct dsa_switch_tree *dst = dev->dsa_ptr;
+	struct dsa_switch *ds = dst->ds[0];
+	struct dsa_switch *ds = dst->cpu_switch;
+	s8 cpu_port = dst->cpu_port;
+	int len = ETH_GSTRING_LEN;
+	int mcount = 0, count;
+
+static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,	if (unlikely(dst == NULL))
+		goto out_drop;
+
+	ds = dst->ds[0];
+	ds = dst->cpu_switch;
+
+	skb = skb_unshare(skb, GFP_ATOMIC);
+	if (skb == NULL)
+
+static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,	/* This protocol doesn't support cascading multiple switches so it's
+	 * safe to assume the switch is first in the tree
+	 */
+	ds = dst->ds[0];
+	ds = dst->cpu_switch;
+	if (!ds)
+		goto out_drop;
+
+
+static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
+	if (unlikely(dst == NULL))
+		goto out_drop;
+	ds = dst->ds[0];
+	ds = dst->cpu_switch;
+
+	skb = skb_unshare(skb, GFP_ATOMIC);
+	if (skb == NULL)
+
+

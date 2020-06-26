@@ -1,0 +1,112 @@
+static inline int udp_rqueue_get(struct sock *sk)	return sk_rmem_alloc_get(sk) - READ_ONCE(udp_sk(sk)->forward_deficit);
+}
+
+static inline bool udp_sk_bound_dev_eq(struct net *net, int bound_dev_if,
+				       int dif, int sdif)
+{
+#if IS_ENABLED(CONFIG_NET_L3_MASTER_DEV)
+	return inet_bound_dev_eq(!!net->ipv4.sysctl_udp_l3mdev_accept,
+				 bound_dev_if, dif, sdif);
+#else
+	return inet_bound_dev_eq(true, bound_dev_if, dif, sdif);
+#endif
+}
+
+/* net/ipv4/udp.c */
+void udp_destruct_sock(struct sock *sk);
+void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len);
+
+static int sock_setbindtodevice(struct sock *sk, char __user *optval,
+	lock_sock(sk);
+	sk->sk_bound_dev_if = index;
+	if (sk->sk_prot->rehash)
+		sk->sk_prot->rehash(sk);
+	sk_dst_reset(sk);
+	release_sock(sk);
+
+
+static int compute_score(struct sock *sk, struct net *net,{
+	int score;
+	struct inet_sock *inet;
+	bool dev_match;
+
+	if (!net_eq(sock_net(sk), net) ||
+	    udp_sk(sk)->udp_port_hash != hnum ||
+
+static int compute_score(struct sock *sk, struct net *net,		score += 4;
+	}
+
+	if (sk->sk_bound_dev_if || exact_dif) {
+		bool dev_match = (sk->sk_bound_dev_if == dif ||
+				  sk->sk_bound_dev_if == sdif);
+
+		if (!dev_match)
+			return -1;
+		if (sk->sk_bound_dev_if)
+			score += 4;
+	}
+	dev_match = udp_sk_bound_dev_eq(net, sk->sk_bound_dev_if,
+					dif, sdif);
+	if (!dev_match)
+		return -1;
+	score += 4;
+
+	if (sk->sk_incoming_cpu == raw_smp_processor_id())
+		score++;
+
+int ip6_datagram_send_ctl(struct net *net, struct sock *sk,		case IPV6_2292PKTINFO:
+		    {
+			struct net_device *dev = NULL;
+			int src_idx;
+
+			if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct in6_pktinfo))) {
+				err = -EINVAL;
+
+int ip6_datagram_send_ctl(struct net *net, struct sock *sk,			}
+
+			src_info = (struct in6_pktinfo *)CMSG_DATA(cmsg);
+			src_idx = src_info->ipi6_ifindex;
+
+			if (src_info->ipi6_ifindex) {
+			if (src_idx) {
+				if (fl6->flowi6_oif &&
+				    src_info->ipi6_ifindex != fl6->flowi6_oif)
+				    src_idx != fl6->flowi6_oif &&
+				    (sk->sk_bound_dev_if != fl6->flowi6_oif ||
+				     !sk_dev_equal_l3scope(sk, src_idx)))
+					return -EINVAL;
+				fl6->flowi6_oif = src_info->ipi6_ifindex;
+				fl6->flowi6_oif = src_idx;
+			}
+
+			addr_type = __ipv6_addr_type(&src_info->ipi6_addr);
+
+static int compute_score(struct sock *sk, struct net *net,{
+	int score;
+	struct inet_sock *inet;
+	bool dev_match;
+
+	if (!net_eq(sock_net(sk), net) ||
+	    udp_sk(sk)->udp_port_hash != hnum ||
+
+static int compute_score(struct sock *sk, struct net *net,		score++;
+	}
+
+	if (sk->sk_bound_dev_if || exact_dif) {
+		bool dev_match = (sk->sk_bound_dev_if == dif ||
+				  sk->sk_bound_dev_if == sdif);
+
+		if (!dev_match)
+			return -1;
+		if (sk->sk_bound_dev_if)
+			score++;
+	}
+	dev_match = udp_sk_bound_dev_eq(net, sk->sk_bound_dev_if, dif, sdif);
+	if (!dev_match)
+		return -1;
+	score++;
+
+	if (sk->sk_incoming_cpu == raw_smp_processor_id())
+		score++;
+
+

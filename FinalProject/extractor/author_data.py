@@ -38,13 +38,13 @@ import pandas as pd
 from tools import CommitsFeatureExtractor, error_log
 
 # Init param
-store_path = '../data/odata/author_level/sample_author@1.1.csv'
+store_path = '../data/rdata/author_level/sample_author@1.1.csv'
 
 columns = ['author', 'commits_number','bug_commits_number','total_fix_distance', 'total_find_bug_time', 'total_fix_bug_time']
-samples = pd.read_csv('../data/odata/author_level/author@1.1.csv', index_col=None)
+samples = pd.read_csv('../data/rdata/author_level/author@1.1.csv', index_col=None)
 
-bug_fixes = json.load(open('../data/odata/prepare_data/all_fix_bug_commit@202006220401.json', 'r'))
-authors = json.load(open('../data/odata/prepare_data/all_author@202006220401.json', 'r'))
+bug_fixes = json.load(open('../data/rdata/prepare_data/all_fix_bug_commit@202006220401.json', 'r'))
+authors = json.load(open('../data/rdata/prepare_data/all_author@202006220401.json', 'r'))
 # Init DataFrame
 result = pd.DataFrame(columns=columns)
 

@@ -1,0 +1,710 @@
+static int tvc_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver tvc_driver = {
+static const struct omap_dss_device_ops tvc_ops = {
+	.connect		= tvc_connect,
+	.disconnect		= tvc_disconnect,
+
+
+static int tvc_probe(struct platform_device *pdev)	ddata->vm = tvc_pal_vm;
+
+	dssdev = &ddata->dssdev;
+	dssdev->driver = &tvc_driver;
+	dssdev->ops = &tvc_ops;
+	dssdev->dev = &pdev->dev;
+	dssdev->type = OMAP_DISPLAY_TYPE_VENC;
+	dssdev->owner = THIS_MODULE;
+
+static void dvic_disable_hpd(struct omap_dss_device *dssdev)	mutex_unlock(&ddata->hpd_lock);
+}
+
+static const struct omap_dss_driver dvic_driver = {
+static const struct omap_dss_device_ops dvic_ops = {
+	.connect	= dvic_connect,
+	.disconnect	= dvic_disconnect,
+
+
+static int dvic_probe(struct platform_device *pdev)	ddata->vm = dvic_default_vm;
+
+	dssdev = &ddata->dssdev;
+	dssdev->driver = &dvic_driver;
+	dssdev->ops = &dvic_ops;
+	dssdev->dev = &pdev->dev;
+	dssdev->type = OMAP_DISPLAY_TYPE_DVI;
+	dssdev->owner = THIS_MODULE;
+
+static int hdmic_read_edid(struct omap_dss_device *dssdev,{
+	struct omap_dss_device *src = dssdev->src;
+
+	return src->ops->hdmi.read_edid(src, edid, len);
+	return src->ops->read_edid(src, edid, len);
+}
+
+static bool hdmic_detect(struct omap_dss_device *dssdev)
+
+static bool hdmic_detect(struct omap_dss_device *dssdev)	if (ddata->hpd_gpio)
+		connected = gpiod_get_value_cansleep(ddata->hpd_gpio);
+	else
+		connected = src->ops->hdmi.detect(src);
+		connected = src->ops->detect(src);
+	if (!connected && src->ops->hdmi.lost_hotplug)
+		src->ops->hdmi.lost_hotplug(src);
+	return connected;
+
+static int hdmic_register_hpd_cb(struct omap_dss_device *dssdev,		ddata->hpd_cb_data = cb_data;
+		mutex_unlock(&ddata->hpd_lock);
+		return 0;
+	} else if (src->ops->hdmi.register_hpd_cb) {
+		return src->ops->hdmi.register_hpd_cb(src, cb, cb_data);
+	} else if (src->ops->register_hpd_cb) {
+		return src->ops->register_hpd_cb(src, cb, cb_data);
+	}
+
+	return -ENOTSUPP;
+
+static void hdmic_unregister_hpd_cb(struct omap_dss_device *dssdev)		ddata->hpd_cb = NULL;
+		ddata->hpd_cb_data = NULL;
+		mutex_unlock(&ddata->hpd_lock);
+	} else if (src->ops->hdmi.unregister_hpd_cb) {
+		src->ops->hdmi.unregister_hpd_cb(src);
+	} else if (src->ops->unregister_hpd_cb) {
+		src->ops->unregister_hpd_cb(src);
+	}
+}
+
+
+static void hdmic_enable_hpd(struct omap_dss_device *dssdev)		mutex_lock(&ddata->hpd_lock);
+		ddata->hpd_enabled = true;
+		mutex_unlock(&ddata->hpd_lock);
+	} else if (src->ops->hdmi.enable_hpd) {
+		src->ops->hdmi.enable_hpd(src);
+	} else if (src->ops->enable_hpd) {
+		src->ops->enable_hpd(src);
+	}
+}
+
+
+static void hdmic_disable_hpd(struct omap_dss_device *dssdev)		mutex_lock(&ddata->hpd_lock);
+		ddata->hpd_enabled = false;
+		mutex_unlock(&ddata->hpd_lock);
+	} else if (src->ops->hdmi.disable_hpd) {
+		src->ops->hdmi.disable_hpd(src);
+	} else if (src->ops->disable_hpd) {
+		src->ops->disable_hpd(src);
+	}
+}
+
+
+static int hdmic_set_infoframe(struct omap_dss_device *dssdev,	return src->ops->hdmi.set_infoframe(src, avi);
+}
+
+static const struct omap_dss_driver hdmic_driver = {
+static const struct omap_dss_device_ops hdmic_ops = {
+	.connect		= hdmic_connect,
+	.disconnect		= hdmic_disconnect,
+
+
+static const struct omap_dss_driver hdmic_driver = {	.unregister_hpd_cb	= hdmic_unregister_hpd_cb,
+	.enable_hpd		= hdmic_enable_hpd,
+	.disable_hpd		= hdmic_disable_hpd,
+	.set_hdmi_mode		= hdmic_set_hdmi_mode,
+	.set_hdmi_infoframe	= hdmic_set_infoframe,
+
+	.hdmi = {
+		.set_hdmi_mode	= hdmic_set_hdmi_mode,
+		.set_infoframe	= hdmic_set_infoframe,
+	},
+};
+
+static irqreturn_t hdmic_hpd_isr(int irq, void *data)
+
+static int hdmic_probe(struct platform_device *pdev)	ddata->vm = hdmic_default_vm;
+
+	dssdev = &ddata->dssdev;
+	dssdev->driver = &hdmic_driver;
+	dssdev->ops = &hdmic_ops;
+	dssdev->dev = &pdev->dev;
+	dssdev->type = OMAP_DISPLAY_TYPE_HDMI;
+	dssdev->owner = THIS_MODULE;
+
+static int tpd_read_edid(struct omap_dss_device *dssdev,	if (!gpiod_get_value_cansleep(ddata->hpd_gpio))
+		return -ENODEV;
+
+	return src->ops->hdmi.read_edid(src, edid, len);
+	return src->ops->read_edid(src, edid, len);
+}
+
+static bool tpd_detect(struct omap_dss_device *dssdev)
+
+static const struct omap_dss_device_ops tpd_ops = {	.disable		= tpd_disable,
+	.check_timings		= tpd_check_timings,
+	.set_timings		= tpd_set_timings,
+	.read_edid		= tpd_read_edid,
+	.detect			= tpd_detect,
+	.register_hpd_cb	= tpd_register_hpd_cb,
+	.unregister_hpd_cb	= tpd_unregister_hpd_cb,
+	.enable_hpd		= tpd_enable_hpd,
+	.disable_hpd		= tpd_disable_hpd,
+
+	.hdmi = {
+		.read_edid		= tpd_read_edid,
+		.detect			= tpd_detect,
+		.register_hpd_cb	= tpd_register_hpd_cb,
+		.unregister_hpd_cb	= tpd_unregister_hpd_cb,
+		.enable_hpd		= tpd_enable_hpd,
+		.disable_hpd		= tpd_disable_hpd,
+		.set_infoframe		= tpd_set_infoframe,
+		.set_hdmi_mode		= tpd_set_hdmi_mode,
+	},
+
+static int panel_dpi_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver panel_dpi_ops = {
+static const struct omap_dss_device_ops panel_dpi_ops = {
+	.connect	= panel_dpi_connect,
+	.disconnect	= panel_dpi_disconnect,
+
+
+static int panel_dpi_probe(struct platform_device *pdev)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = &pdev->dev;
+	dssdev->driver = &panel_dpi_ops;
+	dssdev->ops = &panel_dpi_ops;
+	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+static void dsicm_get_size(struct omap_dss_device *dssdev,	*height = ddata->height_mm;
+}
+
+static const struct omap_dss_driver dsicm_ops = {
+static const struct omap_dss_device_ops dsicm_ops = {
+	.connect	= dsicm_connect,
+	.disconnect	= dsicm_disconnect,
+
+	.enable		= dsicm_enable,
+	.disable	= dsicm_disable,
+
+	.get_timings	= dsicm_get_timings,
+	.check_timings	= dsicm_check_timings,
+};
+
+static const struct omap_dss_driver dsicm_dss_driver = {
+	.update		= dsicm_update,
+	.sync		= dsicm_sync,
+
+	.get_timings	= dsicm_get_timings,
+	.check_timings	= dsicm_check_timings,
+	.get_size	= dsicm_get_size,
+
+	.enable_te	= dsicm_enable_te,
+
+static int dsicm_probe(struct platform_device *pdev)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = dev;
+	dssdev->driver = &dsicm_ops;
+	dssdev->ops = &dsicm_ops;
+	dssdev->driver = &dsicm_dss_driver;
+	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+static int lb035q02_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver lb035q02_ops = {
+static const struct omap_dss_device_ops lb035q02_ops = {
+	.connect	= lb035q02_connect,
+	.disconnect	= lb035q02_disconnect,
+
+
+static int lb035q02_panel_spi_probe(struct spi_device *spi)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = &spi->dev;
+	dssdev->driver = &lb035q02_ops;
+	dssdev->ops = &lb035q02_ops;
+	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+static int nec_8048_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver nec_8048_ops = {
+static const struct omap_dss_device_ops nec_8048_ops = {
+	.connect	= nec_8048_connect,
+	.disconnect	= nec_8048_disconnect,
+
+
+static int nec_8048_probe(struct spi_device *spi)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = &spi->dev;
+	dssdev->driver = &nec_8048_ops;
+	dssdev->ops = &nec_8048_ops;
+	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+static int sharp_ls_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver sharp_ls_ops = {
+static const struct omap_dss_device_ops sharp_ls_ops = {
+	.connect	= sharp_ls_connect,
+	.disconnect	= sharp_ls_disconnect,
+
+
+static int sharp_ls_probe(struct platform_device *pdev)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = &pdev->dev;
+	dssdev->driver = &sharp_ls_ops;
+	dssdev->ops = &sharp_ls_ops;
+	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+static int acx565akm_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver acx565akm_ops = {
+static const struct omap_dss_device_ops acx565akm_ops = {
+	.connect	= acx565akm_connect,
+	.disconnect	= acx565akm_disconnect,
+
+
+static int acx565akm_probe(struct spi_device *spi)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = &spi->dev;
+	dssdev->driver = &acx565akm_ops;
+	dssdev->ops = &acx565akm_ops;
+	dssdev->type = OMAP_DISPLAY_TYPE_SDI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+static int td028ttec1_panel_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver td028ttec1_ops = {
+static const struct omap_dss_device_ops td028ttec1_ops = {
+	.connect	= td028ttec1_panel_connect,
+	.disconnect	= td028ttec1_panel_disconnect,
+
+
+static int td028ttec1_panel_probe(struct spi_device *spi)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = &spi->dev;
+	dssdev->driver = &td028ttec1_ops;
+	dssdev->ops = &td028ttec1_ops;
+	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+static int tpo_td043_check_timings(struct omap_dss_device *dssdev,	return src->ops->check_timings(src, vm);
+}
+
+static const struct omap_dss_driver tpo_td043_ops = {
+static const struct omap_dss_device_ops tpo_td043_ops = {
+	.connect	= tpo_td043_connect,
+	.disconnect	= tpo_td043_disconnect,
+
+
+static int tpo_td043_probe(struct spi_device *spi)
+	dssdev = &ddata->dssdev;
+	dssdev->dev = &spi->dev;
+	dssdev->driver = &tpo_td043_ops;
+	dssdev->ops = &tpo_td043_ops;
+	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
+	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
+
+int omapdss_device_connect(struct dss_device *dss,
+	dst->dss = dss;
+
+	if (dst->driver)
+		ret = dst->driver->connect(src, dst);
+	else
+		ret = dst->ops->connect(src, dst);
+
+	ret = dst->ops->connect(src, dst);
+	if (ret < 0) {
+		dst->dss = NULL;
+		return ret;
+
+void omapdss_device_disconnect(struct omap_dss_device *src,
+	WARN_ON(dst->state != OMAP_DSS_DISPLAY_DISABLED);
+
+	if (dst->driver)
+		dst->driver->disconnect(src, dst);
+	else
+		dst->ops->disconnect(src, dst);
+
+	dst->ops->disconnect(src, dst);
+	dst->dss = NULL;
+}
+EXPORT_SYMBOL_GPL(omapdss_device_disconnect);
+
+static void dss_shutdown(struct platform_device *pdev)
+	for_each_dss_display(dssdev) {
+		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+			dssdev->driver->disable(dssdev);
+			dssdev->ops->disable(dssdev);
+	}
+}
+
+
+static const struct omap_dss_device_ops hdmi_ops = {	.check_timings		= hdmi_display_check_timing,
+	.set_timings		= hdmi_display_set_timing,
+
+	.read_edid		= hdmi_read_edid,
+
+	.hdmi = {
+		.read_edid		= hdmi_read_edid,
+		.lost_hotplug		= hdmi_lost_hotplug,
+		.set_infoframe		= hdmi_set_infoframe,
+		.set_hdmi_mode		= hdmi_set_hdmi_mode,
+
+static const struct omap_dss_device_ops hdmi_ops = {	.check_timings		= hdmi_display_check_timing,
+	.set_timings		= hdmi_display_set_timing,
+
+	.read_edid		= hdmi_read_edid,
+
+	.hdmi = {
+		.read_edid		= hdmi_read_edid,
+		.set_infoframe		= hdmi_set_infoframe,
+		.set_hdmi_mode		= hdmi_set_hdmi_mode,
+	},
+
+struct omap_dss_writeback_info {};
+
+struct omapdss_hdmi_ops {
+	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
+	void (*lost_hotplug)(struct omap_dss_device *dssdev);
+	bool (*detect)(struct omap_dss_device *dssdev);
+
+	int (*register_hpd_cb)(struct omap_dss_device *dssdev,
+			       void (*cb)(void *cb_data,
+					  enum drm_connector_status status),
+			       void *cb_data);
+	void (*unregister_hpd_cb)(struct omap_dss_device *dssdev);
+	void (*enable_hpd)(struct omap_dss_device *dssdev);
+	void (*disable_hpd)(struct omap_dss_device *dssdev);
+
+	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
+	int (*set_infoframe)(struct omap_dss_device *dssdev,
+		const struct hdmi_avi_infoframe *avi);
+
+struct omap_dss_device_ops {
+	int (*check_timings)(struct omap_dss_device *dssdev,
+			     struct videomode *vm);
+	void (*get_timings)(struct omap_dss_device *dssdev,
+			    struct videomode *vm);
+	void (*set_timings)(struct omap_dss_device *dssdev,
+			    struct videomode *vm);
+
+	bool (*detect)(struct omap_dss_device *dssdev);
+
+	int (*register_hpd_cb)(struct omap_dss_device *dssdev,
+			       void (*cb)(void *cb_data,
+					  enum drm_connector_status status),
+			       void *cb_data);
+	void (*unregister_hpd_cb)(struct omap_dss_device *dssdev);
+	void (*enable_hpd)(struct omap_dss_device *dssdev);
+	void (*disable_hpd)(struct omap_dss_device *dssdev);
+
+	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
+
+	union {
+		const struct omapdss_hdmi_ops hdmi;
+		const struct omapdss_dsi_ops dsi;
+
+struct omap_dss_device {};
+
+struct omap_dss_driver {
+	int (*connect)(struct omap_dss_device *src,
+		       struct omap_dss_device *dst);
+	void (*disconnect)(struct omap_dss_device *src,
+			   struct omap_dss_device *dst);
+
+	int (*enable)(struct omap_dss_device *display);
+	void (*disable)(struct omap_dss_device *display);
+
+	int (*update)(struct omap_dss_device *dssdev,
+			       u16 x, u16 y, u16 w, u16 h);
+	int (*sync)(struct omap_dss_device *dssdev);
+
+struct omap_dss_driver {			void *buf, size_t size,
+			u16 x, u16 y, u16 w, u16 h);
+
+	int (*check_timings)(struct omap_dss_device *dssdev,
+			     struct videomode *vm);
+	void (*set_timings)(struct omap_dss_device *dssdev,
+			    struct videomode *vm);
+	void (*get_timings)(struct omap_dss_device *dssdev,
+			    struct videomode *vm);
+	void (*get_size)(struct omap_dss_device *dssdev,
+			 unsigned int *width, unsigned int *height);
+
+	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
+	bool (*detect)(struct omap_dss_device *dssdev);
+
+	int (*register_hpd_cb)(struct omap_dss_device *dssdev,
+			       void (*cb)(void *cb_data,
+					  enum drm_connector_status status),
+			       void *cb_data);
+	void (*unregister_hpd_cb)(struct omap_dss_device *dssdev);
+	void (*enable_hpd)(struct omap_dss_device *dssdev);
+	void (*disable_hpd)(struct omap_dss_device *dssdev);
+
+	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
+	int (*set_hdmi_infoframe)(struct omap_dss_device *dssdev,
+		const struct hdmi_avi_infoframe *avi);
+};
+
+struct dss_device *omapdss_get_dss(void);
+
+static enum drm_connector_status omap_connector_detect({
+	struct omap_connector *omap_connector = to_omap_connector(connector);
+	struct omap_dss_device *dssdev = omap_connector->dssdev;
+	const struct omap_dss_driver *dssdrv = dssdev->driver;
+	enum drm_connector_status ret;
+
+	if (dssdrv->detect) {
+		if (dssdrv->detect(dssdev))
+	if (dssdev->ops->detect) {
+		if (dssdev->ops->detect(dssdev))
+			ret = connector_status_connected;
+		else
+			ret = connector_status_disconnected;
+
+static void omap_connector_destroy(struct drm_connector *connector)
+	DBG("%s", omap_connector->dssdev->name);
+	if (connector->polled == DRM_CONNECTOR_POLL_HPD &&
+	    dssdev->driver->unregister_hpd_cb) {
+		dssdev->driver->unregister_hpd_cb(dssdev);
+	    dssdev->ops->unregister_hpd_cb) {
+		dssdev->ops->unregister_hpd_cb(dssdev);
+	}
+	drm_connector_unregister(connector);
+	drm_connector_cleanup(connector);
+
+static int omap_connector_get_modes(struct drm_connector *connector){
+	struct omap_connector *omap_connector = to_omap_connector(connector);
+	struct omap_dss_device *dssdev = omap_connector->dssdev;
+	const struct omap_dss_driver *dssdrv = dssdev->driver;
+	struct drm_device *dev = connector->dev;
+	int n = 0;
+
+
+static int omap_connector_get_modes(struct drm_connector *connector)	 * LCD panels) we just return a single mode corresponding to the
+	 * currently configured timings:
+	 */
+	if (dssdrv->read_edid) {
+	if (dssdev->ops->read_edid) {
+		void *edid = kzalloc(MAX_EDID, GFP_KERNEL);
+
+		if (!edid)
+			return 0;
+
+		if ((dssdrv->read_edid(dssdev, edid, MAX_EDID) > 0) &&
+		if ((dssdev->ops->read_edid(dssdev, edid, MAX_EDID) > 0) &&
+				drm_edid_is_valid(edid)) {
+			drm_connector_update_edid_property(
+					connector, edid);
+
+static int omap_connector_get_modes(struct drm_connector *connector)		if (!mode)
+			return 0;
+
+		dssdrv->get_timings(dssdev, &vm);
+		dssdev->ops->get_timings(dssdev, &vm);
+
+		drm_display_mode_from_videomode(&vm, mode);
+
+
+static int omap_connector_get_modes(struct drm_connector *connector)		drm_mode_set_name(mode);
+		drm_mode_probed_add(connector, mode);
+
+		if (dssdrv->get_size) {
+			dssdrv->get_size(dssdev,
+		if (dssdev->driver && dssdev->driver->get_size) {
+			dssdev->driver->get_size(dssdev,
+					 &connector->display_info.width_mm,
+					 &connector->display_info.height_mm);
+		}
+
+static int omap_connector_mode_valid(struct drm_connector *connector,{
+	struct omap_connector *omap_connector = to_omap_connector(connector);
+	struct omap_dss_device *dssdev = omap_connector->dssdev;
+	const struct omap_dss_driver *dssdrv = dssdev->driver;
+	struct videomode vm = {0};
+	struct drm_device *dev = connector->dev;
+	struct drm_display_mode *new_mode;
+
+static int omap_connector_mode_valid(struct drm_connector *connector,	 * a fixed resolution panel, check if the timings match with the
+	 * panel's timings
+	 */
+	if (dssdrv->check_timings) {
+		r = dssdrv->check_timings(dssdev, &vm);
+	if (dssdev->ops->check_timings) {
+		r = dssdev->ops->check_timings(dssdev, &vm);
+	} else {
+		struct videomode t = {0};
+
+		dssdrv->get_timings(dssdev, &t);
+		dssdev->ops->get_timings(dssdev, &t);
+
+		/*
+		 * Ignore the flags, as we don't get them from
+
+struct drm_connector *omap_connector_init(struct drm_device *dev,				connector_type);
+	drm_connector_helper_add(connector, &omap_connector_helper_funcs);
+
+	if (dssdev->driver->register_hpd_cb) {
+		int ret = dssdev->driver->register_hpd_cb(dssdev,
+							  omap_connector_hpd_cb,
+							  omap_connector);
+	if (dssdev->ops->register_hpd_cb) {
+		int ret = dssdev->ops->register_hpd_cb(dssdev,
+						       omap_connector_hpd_cb,
+						       omap_connector);
+		if (!ret)
+			hpd_supported = true;
+		else if (ret != -ENOTSUPP)
+
+struct drm_connector *omap_connector_init(struct drm_device *dev,
+	if (hpd_supported)
+		connector->polled = DRM_CONNECTOR_POLL_HPD;
+	else if (dssdev->driver->detect)
+	else if (dssdev->ops->detect)
+		connector->polled = DRM_CONNECTOR_POLL_CONNECT |
+				    DRM_CONNECTOR_POLL_DISCONNECT;
+	else
+
+static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)			if (dssdev) {
+				struct videomode vm = {0};
+
+				dssdev->driver->get_timings(dssdev, &vm);
+				dssdev->ops->get_timings(dssdev, &vm);
+
+				omap_crtc->vm.flags |= vm.flags & flags_mask;
+			}
+
+static void omap_modeset_enable_external_hpd(struct drm_device *ddev)	for (i = 0; i < priv->num_pipes; i++) {
+		struct omap_dss_device *display = priv->pipes[i].display;
+
+		if (display->driver->enable_hpd)
+			display->driver->enable_hpd(display);
+		if (display->ops->enable_hpd)
+			display->ops->enable_hpd(display);
+	}
+}
+
+
+static void omap_modeset_disable_external_hpd(struct drm_device *ddev)	for (i = 0; i < priv->num_pipes; i++) {
+		struct omap_dss_device *display = priv->pipes[i].display;
+
+		if (display->driver->disable_hpd)
+			display->driver->disable_hpd(display);
+		if (display->ops->disable_hpd)
+			display->ops->disable_hpd(display);
+	}
+}
+
+
+static int omap_drm_suspend_all_displays(struct drm_device *ddev)		struct omap_dss_device *display = priv->pipes[i].display;
+
+		if (display->state == OMAP_DSS_DISPLAY_ACTIVE) {
+			display->driver->disable(display);
+			display->ops->disable(display);
+			display->activate_after_resume = true;
+		} else {
+			display->activate_after_resume = false;
+
+static int omap_drm_resume_all_displays(struct drm_device *ddev)		struct omap_dss_device *display = priv->pipes[i].display;
+
+		if (display->activate_after_resume) {
+			display->driver->enable(display);
+			display->ops->enable(display);
+			display->activate_after_resume = false;
+		}
+	}
+
+static void omap_encoder_mode_set(struct drm_encoder *encoder,		}
+	}
+
+	if (dssdev->driver->set_hdmi_mode)
+		dssdev->driver->set_hdmi_mode(dssdev, hdmi_mode);
+	if (dssdev->ops->hdmi.set_hdmi_mode)
+		dssdev->ops->hdmi.set_hdmi_mode(dssdev, hdmi_mode);
+
+	if (hdmi_mode && dssdev->driver->set_hdmi_infoframe) {
+	if (hdmi_mode && dssdev->ops->hdmi.set_infoframe) {
+		struct hdmi_avi_infoframe avi;
+
+		r = drm_hdmi_avi_infoframe_from_display_mode(&avi, adjusted_mode,
+							     false);
+		if (r == 0)
+			dssdev->driver->set_hdmi_infoframe(dssdev, &avi);
+			dssdev->ops->hdmi.set_infoframe(dssdev, &avi);
+	}
+}
+
+
+static void omap_encoder_disable(struct drm_encoder *encoder){
+	struct omap_encoder *omap_encoder = to_omap_encoder(encoder);
+	struct omap_dss_device *dssdev = omap_encoder->dssdev;
+	const struct omap_dss_driver *dssdrv = dssdev->driver;
+
+	dssdrv->disable(dssdev);
+	dssdev->ops->disable(dssdev);
+}
+
+static int omap_encoder_update(struct drm_encoder *encoder,
+
+static int omap_encoder_update(struct drm_encoder *encoder,	struct drm_device *dev = encoder->dev;
+	struct omap_encoder *omap_encoder = to_omap_encoder(encoder);
+	struct omap_dss_device *dssdev = omap_encoder->dssdev;
+	const struct omap_dss_driver *dssdrv = dssdev->driver;
+	int ret;
+
+	if (dssdrv->check_timings) {
+		ret = dssdrv->check_timings(dssdev, vm);
+	if (dssdev->ops->check_timings) {
+		ret = dssdev->ops->check_timings(dssdev, vm);
+	} else {
+		struct videomode t = {0};
+
+		dssdrv->get_timings(dssdev, &t);
+		dssdev->ops->get_timings(dssdev, &t);
+
+		if (memcmp(vm, &t, sizeof(*vm)))
+			ret = -EINVAL;
+
+static int omap_encoder_update(struct drm_encoder *encoder,		return ret;
+	}
+
+	if (dssdrv->set_timings)
+		dssdrv->set_timings(dssdev, vm);
+	if (dssdev->ops->set_timings)
+		dssdev->ops->set_timings(dssdev, vm);
+
+	return 0;
+}
+
+static void omap_encoder_enable(struct drm_encoder *encoder){
+	struct omap_encoder *omap_encoder = to_omap_encoder(encoder);
+	struct omap_dss_device *dssdev = omap_encoder->dssdev;
+	const struct omap_dss_driver *dssdrv = dssdev->driver;
+	int r;
+
+	omap_encoder_update(encoder, omap_crtc_channel(encoder->crtc),
+			    omap_crtc_timings(encoder->crtc));
+
+	r = dssdrv->enable(dssdev);
+	r = dssdev->ops->enable(dssdev);
+	if (r)
+		dev_err(encoder->dev->dev,
+			"Failed to enable display '%s': %d\n",
+
+

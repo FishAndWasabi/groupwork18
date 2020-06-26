@@ -1,0 +1,330 @@
+static int fuse_notify_poll(struct fuse_conn *fc, unsigned int size,	return err;
+}
+
+static int fuse_notify_inval_inode(struct fuse_conn *fc, unsigned int size,
+				   struct fuse_copy_state *cs)
+{
+	struct fuse_notify_inval_inode_out outarg;
+	int err = -EINVAL;
+
+	if (size != sizeof(outarg))
+		goto err;
+
+	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
+	if (err)
+		goto err;
+	fuse_copy_finish(cs);
+
+	down_read(&fc->killsb);
+	err = -ENOENT;
+	if (!fc->sb)
+		goto err_unlock;
+
+	err = fuse_reverse_inval_inode(fc->sb, outarg.ino,
+				       outarg.off, outarg.len);
+
+err_unlock:
+	up_read(&fc->killsb);
+	return err;
+
+err:
+	fuse_copy_finish(cs);
+	return err;
+}
+
+static int fuse_notify_inval_entry(struct fuse_conn *fc, unsigned int size,
+				   struct fuse_copy_state *cs)
+{
+	struct fuse_notify_inval_entry_out outarg;
+	int err = -EINVAL;
+	char buf[FUSE_NAME_MAX+1];
+	struct qstr name;
+
+	if (size < sizeof(outarg))
+		goto err;
+
+	err = fuse_copy_one(cs, &outarg, sizeof(outarg));
+	if (err)
+		goto err;
+
+	err = -ENAMETOOLONG;
+	if (outarg.namelen > FUSE_NAME_MAX)
+		goto err;
+
+	name.name = buf;
+	name.len = outarg.namelen;
+	err = fuse_copy_one(cs, buf, outarg.namelen + 1);
+	if (err)
+		goto err;
+	fuse_copy_finish(cs);
+	buf[outarg.namelen] = 0;
+	name.hash = full_name_hash(name.name, name.len);
+
+	down_read(&fc->killsb);
+	err = -ENOENT;
+	if (!fc->sb)
+		goto err_unlock;
+
+	err = fuse_reverse_inval_entry(fc->sb, outarg.parent, &name);
+
+err_unlock:
+	up_read(&fc->killsb);
+	return err;
+
+err:
+	fuse_copy_finish(cs);
+	return err;
+}
+
+static int fuse_notify(struct fuse_conn *fc, enum fuse_notify_code code,
+		       unsigned int size, struct fuse_copy_state *cs)
+{
+
+static int fuse_notify(struct fuse_conn *fc, enum fuse_notify_code code,	case FUSE_NOTIFY_POLL:
+		return fuse_notify_poll(fc, size, cs);
+
+	case FUSE_NOTIFY_INVAL_INODE:
+		return fuse_notify_inval_inode(fc, size, cs);
+
+	case FUSE_NOTIFY_INVAL_ENTRY:
+		return fuse_notify_inval_entry(fc, size, cs);
+
+	default:
+		fuse_copy_finish(cs);
+		return -EINVAL;
+
+int fuse_update_attributes(struct inode *inode, struct kstat *stat,	return err;
+}
+
+int fuse_reverse_inval_entry(struct super_block *sb, u64 parent_nodeid,
+			     struct qstr *name)
+{
+	int err = -ENOTDIR;
+	struct inode *parent;
+	struct dentry *dir;
+	struct dentry *entry;
+
+	parent = ilookup5(sb, parent_nodeid, fuse_inode_eq, &parent_nodeid);
+	if (!parent)
+		return -ENOENT;
+
+	mutex_lock(&parent->i_mutex);
+	if (!S_ISDIR(parent->i_mode))
+		goto unlock;
+
+	err = -ENOENT;
+	dir = d_find_alias(parent);
+	if (!dir)
+		goto unlock;
+
+	entry = d_lookup(dir, name);
+	dput(dir);
+	if (!entry)
+		goto unlock;
+
+	fuse_invalidate_attr(parent);
+	fuse_invalidate_entry(entry);
+	dput(entry);
+	err = 0;
+
+ unlock:
+	mutex_unlock(&parent->i_mutex);
+	iput(parent);
+	return err;
+}
+
+/*
+ * Calling into a user-controlled filesystem gives the filesystem
+ * daemon ptrace-like capabilities over the requester process.  This
+
+struct fuse_conn {
+	/** Called on final put */
+	void (*release)(struct fuse_conn *);
+
+	/** Super block for this connection. */
+	struct super_block *sb;
+
+	/** Read/write semaphore to hold when accessing sb. */
+	struct rw_semaphore killsb;
+};
+
+static inline struct fuse_conn *get_fuse_conn_super(struct super_block *sb)
+
+extern const struct file_operations fuse_dev_operations;
+extern const struct dentry_operations fuse_dentry_operations;
+
+/**
+ * Inode to nodeid comparison.
+ */
+int fuse_inode_eq(struct inode *inode, void *_nodeidp);
+
+/**
+ * Get a filled in inode
+ */
+
+void fuse_release_nowrite(struct inode *inode);
+u64 fuse_get_attr_version(struct fuse_conn *fc);
+
+/**
+ * File-system tells the kernel to invalidate cache for the given node id.
+ */
+int fuse_reverse_inval_inode(struct super_block *sb, u64 nodeid,
+			     loff_t offset, loff_t len);
+
+/**
+ * File-system tells the kernel to invalidate parent attributes and
+ * the dentry matching parent/name.
+ */
+int fuse_reverse_inval_entry(struct super_block *sb, u64 parent_nodeid,
+			     struct qstr *name);
+
+int fuse_do_open(struct fuse_conn *fc, u64 nodeid, struct file *file,
+		 bool isdir);
+ssize_t fuse_direct_io(struct file *file, const char __user *buf,
+
+static void fuse_init_inode(struct inode *inode, struct fuse_attr *attr)		BUG();
+}
+
+static int fuse_inode_eq(struct inode *inode, void *_nodeidp)
+int fuse_inode_eq(struct inode *inode, void *_nodeidp)
+{
+	u64 nodeid = *(u64 *) _nodeidp;
+	if (get_node_id(inode) == nodeid)
+
+struct inode *fuse_iget(struct super_block *sb, u64 nodeid,	return inode;
+}
+
+int fuse_reverse_inval_inode(struct super_block *sb, u64 nodeid,
+			     loff_t offset, loff_t len)
+{
+	struct inode *inode;
+	pgoff_t pg_start;
+	pgoff_t pg_end;
+
+	inode = ilookup5(sb, nodeid, fuse_inode_eq, &nodeid);
+	if (!inode)
+		return -ENOENT;
+
+	fuse_invalidate_attr(inode);
+	if (offset >= 0) {
+		pg_start = offset >> PAGE_CACHE_SHIFT;
+		if (len <= 0)
+			pg_end = -1;
+		else
+			pg_end = (offset + len - 1) >> PAGE_CACHE_SHIFT;
+		invalidate_inode_pages2_range(inode->i_mapping,
+					      pg_start, pg_end);
+	}
+	iput(inode);
+	return 0;
+}
+
+static void fuse_umount_begin(struct super_block *sb)
+{
+	fuse_abort_conn(get_fuse_conn_super(sb));
+
+void fuse_conn_init(struct fuse_conn *fc)	memset(fc, 0, sizeof(*fc));
+	spin_lock_init(&fc->lock);
+	mutex_init(&fc->inst_mutex);
+	init_rwsem(&fc->killsb);
+	atomic_set(&fc->count, 1);
+	init_waitqueue_head(&fc->waitq);
+	init_waitqueue_head(&fc->blocked_waitq);
+
+static int fuse_fill_super(struct super_block *sb, void *data, int silent)	fuse_conn_init(fc);
+
+	fc->dev = sb->s_dev;
+	fc->sb = sb;
+	err = fuse_bdi_init(fc, sb);
+	if (err)
+		goto err_put_conn;
+
+static int fuse_get_sb(struct file_system_type *fs_type,	return get_sb_nodev(fs_type, flags, raw_data, fuse_fill_super, mnt);
+}
+
+static void fuse_kill_sb_anon(struct super_block *sb)
+{
+	struct fuse_conn *fc = get_fuse_conn_super(sb);
+
+	if (fc) {
+		down_write(&fc->killsb);
+		fc->sb = NULL;
+		up_write(&fc->killsb);
+	}
+
+	kill_anon_super(sb);
+}
+
+static struct file_system_type fuse_fs_type = {
+	.owner		= THIS_MODULE,
+	.name		= "fuse",
+	.fs_flags	= FS_HAS_SUBTYPE,
+	.get_sb		= fuse_get_sb,
+	.kill_sb	= kill_anon_super,
+	.kill_sb	= fuse_kill_sb_anon,
+};
+
+#ifdef CONFIG_BLOCK
+
+static int fuse_get_sb_blk(struct file_system_type *fs_type,			   mnt);
+}
+
+static void fuse_kill_sb_blk(struct super_block *sb)
+{
+	struct fuse_conn *fc = get_fuse_conn_super(sb);
+
+	if (fc) {
+		down_write(&fc->killsb);
+		fc->sb = NULL;
+		up_write(&fc->killsb);
+	}
+
+	kill_block_super(sb);
+}
+
+static struct file_system_type fuseblk_fs_type = {
+	.owner		= THIS_MODULE,
+	.name		= "fuseblk",
+	.get_sb		= fuse_get_sb_blk,
+	.kill_sb	= kill_block_super,
+	.kill_sb	= fuse_kill_sb_blk,
+	.fs_flags	= FS_REQUIRES_DEV | FS_HAS_SUBTYPE,
+};
+
+
+ *
+ * 7.12
+ *  - add umask flag to input argument of open, mknod and mkdir
+ *  - add notification messages for invalidation of inodes and
+ *    directory entries
+ */
+
+#ifndef _LINUX_FUSE_H
+
+enum fuse_opcode {
+enum fuse_notify_code {
+	FUSE_NOTIFY_POLL   = 1,
+	FUSE_NOTIFY_INVAL_INODE = 2,
+	FUSE_NOTIFY_INVAL_ENTRY = 3,
+	FUSE_NOTIFY_CODE_MAX,
+};
+
+
+struct fuse_dirent {#define FUSE_DIRENT_SIZE(d) \
+	FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + (d)->namelen)
+
+struct fuse_notify_inval_inode_out {
+	__u64	ino;
+	__s64	off;
+	__s64	len;
+};
+
+struct fuse_notify_inval_entry_out {
+	__u64	parent;
+	__u32	namelen;
+	__u32	padding;
+};
+
+#endif /* _LINUX_FUSE_H */
+
+

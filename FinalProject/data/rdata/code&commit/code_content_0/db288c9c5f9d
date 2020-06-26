@@ -1,0 +1,82 @@
+static int pci_restore_standard_config(struct pci_dev *pci_dev)	return 0;
+}
+
+#endif
+
+#ifdef CONFIG_PM_SLEEP
+
+static void pci_pm_default_resume_early(struct pci_dev *pci_dev)
+{
+	pci_restore_standard_config(pci_dev);
+	pci_power_up(pci_dev);
+	pci_restore_state(pci_dev);
+	pci_fixup_device(pci_fixup_resume_early, pci_dev);
+}
+
+#endif
+
+#ifdef CONFIG_PM_SLEEP
+
+/*
+ * Default "suspend" method for devices that have no driver provided suspend,
+ * or not even a driver at all (second part).
+
+static int pci_pm_runtime_resume(struct device *dev)	if (!pm || !pm->runtime_resume)
+		return -ENOSYS;
+
+	pci_pm_default_resume_early(pci_dev);
+	pci_restore_standard_config(pci_dev);
+	pci_fixup_device(pci_fixup_resume_early, pci_dev);
+	__pci_enable_wake(pci_dev, PCI_D0, true, false);
+	pci_fixup_device(pci_fixup_resume, pci_dev);
+
+
+void pci_update_current_state(struct pci_dev *dev, pci_power_t state)	}
+}
+
+/**
+ * pci_power_up - Put the given device into D0 forcibly
+ * @dev: PCI device to power up
+ */
+void pci_power_up(struct pci_dev *dev)
+{
+	if (platform_pci_power_manageable(dev))
+		platform_pci_set_power_state(dev, PCI_D0);
+
+	pci_raw_set_power_state(dev, PCI_D0);
+	pci_update_current_state(dev, PCI_D0);
+}
+
+/**
+ * pci_platform_power_transition - Use platform to change device power state
+ * @dev: PCI device to handle.
+
+int __pci_complete_power_transition(struct pci_dev *dev, pci_power_t state){
+	int ret;
+
+	if (state < PCI_D0)
+	if (state <= PCI_D0)
+		return -EINVAL;
+	ret = pci_platform_power_transition(dev, state);
+	/* Power off the bridge may power off the whole hierarchy */
+
+int pci_set_power_state(struct pci_dev *dev, pci_power_t state)		 */
+		return 0;
+
+	/* Check if we're already there */
+	if (dev->current_state == state)
+		return 0;
+
+	__pci_start_power_transition(dev, state);
+
+	/* This device is quirked not to be put into D3, so
+
+struct pci_platform_pm_ops {
+extern int pci_set_platform_pm(struct pci_platform_pm_ops *ops);
+extern void pci_update_current_state(struct pci_dev *dev, pci_power_t state);
+extern void pci_power_up(struct pci_dev *dev);
+extern void pci_disable_enabled_device(struct pci_dev *dev);
+extern int pci_finish_runtime_suspend(struct pci_dev *dev);
+extern int __pci_pme_wakeup(struct pci_dev *dev, void *ign);
+
+

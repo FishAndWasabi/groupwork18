@@ -31,6 +31,6 @@ from tools import get_all_author
 if __name__ == '__main__':
     # Record the time stamp because it is dynamic
     time = '202006220401'
-    store_path = '../data/odata/prepare_data/all_author@{}.json'.format(time)
+    store_path = '../data/rdata/prepare_data/all_author@{}.json'.format(time)
     authors = get_all_author()
     json.dump(authors,open(store_path,'w'))

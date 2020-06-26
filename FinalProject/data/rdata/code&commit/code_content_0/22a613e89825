@@ -1,0 +1,709 @@
+static bool has_get_frontend(struct dvb_frontend *fe)	return fe->ops.get_frontend != NULL;
+}
+
+int
+dvb_tuner_simple_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+EXPORT_SYMBOL(dvb_tuner_simple_release);
+
+/*
+ * Due to DVBv3 API calls, a delivery system should be mapped into one of
+ * the 4 DVBv3 delivery systems (FE_QPSK, FE_QAM, FE_OFDM or FE_ATSC),
+
+struct dvb_tuner_ops {	int (*set_bandwidth)(struct dvb_frontend *fe, u32 bandwidth);
+};
+
+/**
+ * A common default implementation for dvb_tuner_ops.release.  All it
+ * does is kfree() the tuner_priv and assign NULL to it.
+ */
+int
+dvb_tuner_simple_release(struct dvb_frontend *fe);
+
+/**
+ * struct analog_demod_info - Information struct for analog TV part of the demod
+ *
+
+static int dib0070_get_frequency(struct dvb_frontend *fe, u32 *frequency)	return 0;
+}
+
+static int dib0070_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static const struct dvb_tuner_ops dib0070_ops = {
+	.info = {
+		.name           = "DiBcom DiB0070",
+
+static const struct dvb_tuner_ops dib0070_ops = {		.frequency_max  = 860000000,
+		.frequency_step =      1000,
+	},
+	.release       = dib0070_release,
+	.release       = dvb_tuner_simple_release,
+
+	.init          = dib0070_wakeup,
+	.sleep         = dib0070_sleep,
+
+static int dib0090_tune(struct dvb_frontend *fe)	return ret;
+}
+
+static int dib0090_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+enum frontend_tune_state dib0090_get_tune_state(struct dvb_frontend *fe)
+{
+	struct dib0090_state *state = fe->tuner_priv;
+
+static const struct dvb_tuner_ops dib0090_ops = {		 .frequency_max = 860000000,
+		 .frequency_step = 1000,
+		 },
+	.release = dib0090_release,
+	.release = dvb_tuner_simple_release,
+
+	.init = dib0090_wakeup,
+	.sleep = dib0090_sleep,
+
+static const struct dvb_tuner_ops dib0090_fw_ops = {		 .frequency_max = 860000000,
+		 .frequency_step = 1000,
+		 },
+	.release = dib0090_release,
+	.release = dvb_tuner_simple_release,
+
+	.init = NULL,
+	.sleep = NULL,
+
+static int dvb_pll_configure(struct dvb_frontend *fe, u8 *buf,	return (div * desc->entries[i].stepsize) - desc->iffreq;
+}
+
+static int dvb_pll_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int dvb_pll_sleep(struct dvb_frontend *fe)
+{
+	struct dvb_pll_priv *priv = fe->tuner_priv;
+
+static int dvb_pll_init(struct dvb_frontend *fe)}
+
+static const struct dvb_tuner_ops dvb_pll_tuner_ops = {
+	.release = dvb_pll_release,
+	.release = dvb_tuner_simple_release,
+	.sleep = dvb_pll_sleep,
+	.init = dvb_pll_init,
+	.set_params = dvb_pll_set_params,
+
+static int itd1000_sleep(struct dvb_frontend *fe)	return 0;
+}
+
+static int itd1000_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static const struct dvb_tuner_ops itd1000_tuner_ops = {
+	.info = {
+		.name           = "Integrant ITD1000",
+
+static const struct dvb_tuner_ops itd1000_tuner_ops = {		.frequency_step = 125,     /* kHz for QPSK frontends */
+	},
+
+	.release       = itd1000_release,
+	.release       = dvb_tuner_simple_release,
+
+	.init          = itd1000_init,
+	.sleep         = itd1000_sleep,
+
+static int ix2505v_write(struct ix2505v_state *state, u8 buf[], u8 count)	return 0;
+}
+
+static int ix2505v_release(struct dvb_frontend *fe)
+{
+	struct ix2505v_state *state = fe->tuner_priv;
+
+	fe->tuner_priv = NULL;
+	kfree(state);
+
+	return 0;
+}
+
+/**
+ *  Data write format of the Sharp IX2505V B0017
+ *
+
+static const struct dvb_tuner_ops ix2505v_tuner_ops = {		.frequency_min = 950000,
+		.frequency_max = 2175000
+	},
+	.release = ix2505v_release,
+	.release = dvb_tuner_simple_release,
+	.set_params = ix2505v_set_params,
+	.get_frequency = ix2505v_get_frequency,
+};
+
+struct stb6000_priv {	u32 frequency;
+};
+
+static int stb6000_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int stb6000_sleep(struct dvb_frontend *fe)
+{
+	struct stb6000_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops stb6000_tuner_ops = {		.frequency_min = 950000,
+		.frequency_max = 2150000
+	},
+	.release = stb6000_release,
+	.release = dvb_tuner_simple_release,
+	.sleep = stb6000_sleep,
+	.set_params = stb6000_set_params,
+	.get_frequency = stb6000_get_frequency,
+
+struct stb6100_lkup {	u8   reg;
+};
+
+static int stb6100_release(struct dvb_frontend *fe);
+
+static const struct stb6100_lkup lkup[] = {
+	{       0,  950000, 0x0a },
+	{  950000, 1000000, 0x0a },
+
+static const struct dvb_tuner_ops stb6100_ops = {	.set_params	= stb6100_set_params,
+	.get_frequency  = stb6100_get_frequency,
+	.get_bandwidth  = stb6100_get_bandwidth,
+	.release	= stb6100_release
+	.release	= dvb_tuner_simple_release
+};
+
+struct dvb_frontend *stb6100_attach(struct dvb_frontend *fe,
+
+struct dvb_frontend *stb6100_attach(struct dvb_frontend *fe,	return fe;
+}
+
+static int stb6100_release(struct dvb_frontend *fe)
+{
+	struct stb6100_state *state = fe->tuner_priv;
+
+	fe->tuner_priv = NULL;
+	kfree(state);
+
+	return 0;
+}
+
+EXPORT_SYMBOL(stb6100_attach);
+MODULE_PARM_DESC(verbose, "Set Verbosity level");
+
+
+static s32 abssub(s32 a, s32 b)		return b - a;
+};
+
+static int stv6110_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int stv6110_write_regs(struct dvb_frontend *fe, u8 buf[],
+							int start, int len)
+{
+
+static const struct dvb_tuner_ops stv6110_tuner_ops = {		.frequency_step = 1000,
+	},
+	.init = stv6110_init,
+	.release = stv6110_release,
+	.release = dvb_tuner_simple_release,
+	.sleep = stv6110_sleep,
+	.set_params = stv6110_set_params,
+	.get_frequency = stv6110_get_frequency,
+
+static int stv6110x_get_status(struct dvb_frontend *fe, u32 *status)}
+
+
+static int stv6110x_release(struct dvb_frontend *fe)
+{
+	struct stv6110x_state *stv6110x = fe->tuner_priv;
+
+	fe->tuner_priv = NULL;
+	kfree(stv6110x);
+
+	return 0;
+}
+
+static const struct dvb_tuner_ops stv6110x_ops = {
+	.info = {
+		.name		= "STV6110(A) Silicon Tuner",
+
+static const struct dvb_tuner_ops stv6110x_ops = {		.frequency_max	= 2150000,
+		.frequency_step	= 0,
+	},
+	.release		= stv6110x_release
+	.release		= dvb_tuner_simple_release,
+};
+
+static const struct stv6110x_devctl stv6110x_ctl = {
+
+static int init(struct dvb_frontend *fe)	return 0;
+}
+
+static int release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+
+static int set_params(struct dvb_frontend *fe)
+{
+	struct tda_state *state = fe->tuner_priv;
+
+static const struct dvb_tuner_ops tuner_ops = {	.init              = init,
+	.sleep             = sleep,
+	.set_params        = set_params,
+	.release           = release,
+	.release           = dvb_tuner_simple_release,
+	.get_if_frequency  = get_if_frequency,
+	.get_bandwidth     = get_bandwidth,
+};
+
+static int tda665x_set_params(struct dvb_frontend *fe)	return 0;
+}
+
+static int tda665x_release(struct dvb_frontend *fe)
+{
+	struct tda665x_state *state = fe->tuner_priv;
+
+	fe->tuner_priv = NULL;
+	kfree(state);
+	return 0;
+}
+
+static const struct dvb_tuner_ops tda665x_ops = {
+	.get_status	= tda665x_get_status,
+	.set_params	= tda665x_set_params,
+	.get_frequency	= tda665x_get_frequency,
+	.release	= tda665x_release
+	.release	= dvb_tuner_simple_release,
+};
+
+struct dvb_frontend *tda665x_attach(struct dvb_frontend *fe,
+
+static int tda8261_set_params(struct dvb_frontend *fe)	return 0;
+}
+
+static int tda8261_release(struct dvb_frontend *fe)
+{
+	struct tda8261_state *state = fe->tuner_priv;
+
+	fe->tuner_priv = NULL;
+	kfree(state);
+	return 0;
+}
+
+static const struct dvb_tuner_ops tda8261_ops = {
+
+	.info = {
+
+static const struct dvb_tuner_ops tda8261_ops = {	.set_params	= tda8261_set_params,
+	.get_frequency	= tda8261_get_frequency,
+	.get_status	= tda8261_get_status,
+	.release	= tda8261_release
+	.release	= dvb_tuner_simple_release,
+};
+
+struct dvb_frontend *tda8261_attach(struct dvb_frontend *fe,
+
+struct tda826x_priv {	u32 frequency;
+};
+
+static int tda826x_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int tda826x_sleep(struct dvb_frontend *fe)
+{
+	struct tda826x_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops tda826x_tuner_ops = {		.frequency_min = 950000,
+		.frequency_max = 2175000
+	},
+	.release = tda826x_release,
+	.release = dvb_tuner_simple_release,
+	.sleep = tda826x_sleep,
+	.set_params = tda826x_set_params,
+	.get_frequency = tda826x_get_frequency,
+
+struct tua6100_priv {	u32 frequency;
+};
+
+static int tua6100_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int tua6100_sleep(struct dvb_frontend *fe)
+{
+	struct tua6100_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops tua6100_tuner_ops = {		.frequency_max = 2150000,
+		.frequency_step = 1000,
+	},
+	.release = tua6100_release,
+	.release = dvb_tuner_simple_release,
+	.sleep = tua6100_sleep,
+	.set_params = tua6100_set_params,
+	.get_frequency = tua6100_get_frequency,
+
+static int zl10036_write(struct zl10036_state *state, u8 buf[], u8 count)	return 0;
+}
+
+static int zl10036_release(struct dvb_frontend *fe)
+{
+	struct zl10036_state *state = fe->tuner_priv;
+
+	fe->tuner_priv = NULL;
+	kfree(state);
+
+	return 0;
+}
+
+static int zl10036_sleep(struct dvb_frontend *fe)
+{
+	struct zl10036_state *state = fe->tuner_priv;
+
+static const struct dvb_tuner_ops zl10036_tuner_ops = {		.frequency_max = 2175000
+	},
+	.init = zl10036_init,
+	.release = zl10036_release,
+	.release = dvb_tuner_simple_release,
+	.sleep = zl10036_sleep,
+	.set_params = zl10036_set_params,
+	.get_frequency = zl10036_get_frequency,
+
+static int fc0011_readreg(struct fc0011_priv *priv, u8 reg, u8 *val)	return 0;
+}
+
+static int fc0011_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+
+	return 0;
+}
+
+static int fc0011_init(struct dvb_frontend *fe)
+{
+	struct fc0011_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops fc0011_tuner_ops = {		.frequency_max	= 1000000000,
+	},
+
+	.release		= fc0011_release,
+	.release		= dvb_tuner_simple_release,
+	.init			= fc0011_init,
+
+	.set_params		= fc0011_set_params,
+
+static int fc0012_readreg(struct fc0012_priv *priv, u8 reg, u8 *val)	return 0;
+}
+
+static int fc0012_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int fc0012_init(struct dvb_frontend *fe)
+{
+	struct fc0012_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops fc0012_tuner_ops = {		.frequency_step = 0,
+	},
+
+	.release	= fc0012_release,
+	.release	= dvb_tuner_simple_release,
+
+	.init		= fc0012_init,
+
+
+static int fc0013_readreg(struct fc0013_priv *priv, u8 reg, u8 *val)	return 0;
+}
+
+static int fc0013_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int fc0013_init(struct dvb_frontend *fe)
+{
+	struct fc0013_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops fc0013_tuner_ops = {		.frequency_step	= 0,
+	},
+
+	.release	= fc0013_release,
+	.release	= dvb_tuner_simple_release,
+
+	.init		= fc0013_init,
+	.sleep		= fc0013_sleep,
+
+static int mc44s803_readreg(struct mc44s803_priv *priv, u8 reg, u32 *val)	return 0;
+}
+
+static int mc44s803_release(struct dvb_frontend *fe)
+{
+	struct mc44s803_priv *priv = fe->tuner_priv;
+
+	fe->tuner_priv = NULL;
+	kfree(priv);
+
+	return 0;
+}
+
+static int mc44s803_init(struct dvb_frontend *fe)
+{
+	struct mc44s803_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops mc44s803_tuner_ops = {		.frequency_step =     100000,
+	},
+
+	.release       = mc44s803_release,
+	.release       = dvb_tuner_simple_release,
+	.init          = mc44s803_init,
+	.set_params    = mc44s803_set_params,
+	.get_frequency = mc44s803_get_frequency,
+
+static int mt2060_sleep(struct dvb_frontend *fe)	return ret;
+}
+
+static int mt2060_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static const struct dvb_tuner_ops mt2060_tuner_ops = {
+	.info = {
+		.name           = "Microtune MT2060",
+
+static const struct dvb_tuner_ops mt2060_tuner_ops = {		.frequency_step =     50000,
+	},
+
+	.release       = mt2060_release,
+	.release       = dvb_tuner_simple_release,
+
+	.init          = mt2060_init,
+	.sleep         = mt2060_sleep,
+
+struct microtune_priv {	u32 frequency;
+};
+
+static int microtune_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+
+	return 0;
+}
+
+static int microtune_get_frequency(struct dvb_frontend *fe, u32 *frequency)
+{
+	struct microtune_priv *priv = fe->tuner_priv;
+
+static int mt2032_set_params(struct dvb_frontend *fe,
+static const struct dvb_tuner_ops mt2032_tuner_ops = {
+	.set_analog_params = mt2032_set_params,
+	.release           = microtune_release,
+	.release           = dvb_tuner_simple_release,
+	.get_frequency     = microtune_get_frequency,
+};
+
+
+static int mt2050_set_params(struct dvb_frontend *fe,
+static const struct dvb_tuner_ops mt2050_tuner_ops = {
+	.set_analog_params = mt2050_set_params,
+	.release           = microtune_release,
+	.release           = dvb_tuner_simple_release,
+	.get_frequency     = microtune_get_frequency,
+};
+
+
+static int mt2266_sleep(struct dvb_frontend *fe)	return 0;
+}
+
+static int mt2266_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static const struct dvb_tuner_ops mt2266_tuner_ops = {
+	.info = {
+		.name           = "Microtune MT2266",
+
+static const struct dvb_tuner_ops mt2266_tuner_ops = {		.frequency_max  = 862000000,
+		.frequency_step =     50000,
+	},
+	.release       = mt2266_release,
+	.release       = dvb_tuner_simple_release,
+	.init          = mt2266_init,
+	.sleep         = mt2266_sleep,
+	.set_params    = mt2266_set_params,
+
+static int qt1010_init(struct dvb_frontend *fe)	return qt1010_set_params(fe);
+}
+
+static int qt1010_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int qt1010_get_frequency(struct dvb_frontend *fe, u32 *frequency)
+{
+	struct qt1010_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops qt1010_tuner_ops = {		.frequency_step = QT1010_STEP,
+	},
+
+	.release       = qt1010_release,
+	.release       = dvb_tuner_simple_release,
+	.init          = qt1010_init,
+	/* TODO: implement sleep */
+
+
+static int tda18218_init(struct dvb_frontend *fe)	return ret;
+}
+
+static int tda18218_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static const struct dvb_tuner_ops tda18218_tuner_ops = {
+	.info = {
+		.name           = "NXP TDA18218",
+
+static const struct dvb_tuner_ops tda18218_tuner_ops = {		.frequency_step =      1000,
+	},
+
+	.release       = tda18218_release,
+	.release       = dvb_tuner_simple_release,
+	.init          = tda18218_init,
+	.sleep         = tda18218_sleep,
+
+
+static void tda827xa_agcf(struct dvb_frontend *fe)
+/* ------------------------------------------------------------------ */
+
+static int tda827x_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+	return 0;
+}
+
+static int tda827x_get_frequency(struct dvb_frontend *fe, u32 *frequency)
+{
+	struct tda827x_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops tda827xo_tuner_ops = {		.frequency_max  = 860000000,
+		.frequency_step =    250000
+	},
+	.release = tda827x_release,
+	.release = dvb_tuner_simple_release,
+	.init = tda827x_initial_init,
+	.sleep = tda827x_initial_sleep,
+	.set_params = tda827xo_set_params,
+
+static const struct dvb_tuner_ops tda827xa_tuner_ops = {		.frequency_max  = 906000000,
+		.frequency_step =     62500
+	},
+	.release = tda827x_release,
+	.release = dvb_tuner_simple_release,
+	.init = tda827x_init,
+	.sleep = tda827xa_sleep,
+	.set_params = tda827xa_set_params,
+
+int tea5761_autodetection(struct i2c_adapter* i2c_adap, u8 i2c_addr)	return 0;
+}
+
+static int tea5761_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+
+	return 0;
+}
+
+static int tea5761_get_frequency(struct dvb_frontend *fe, u32 *frequency)
+{
+	struct tea5761_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops tea5761_tuner_ops = {	},
+	.set_analog_params = set_radio_freq,
+	.sleep		   = set_radio_sleep,
+	.release           = tea5761_release,
+	.release           = dvb_tuner_simple_release,
+	.get_frequency     = tea5761_get_frequency,
+	.get_status        = tea5761_get_status,
+	.get_rf_strength   = tea5761_get_rf_strength,
+
+int tea5767_autodetection(struct i2c_adapter* i2c_adap, u8 i2c_addr)	return 0;
+}
+
+static int tea5767_release(struct dvb_frontend *fe)
+{
+	kfree(fe->tuner_priv);
+	fe->tuner_priv = NULL;
+
+	return 0;
+}
+
+static int tea5767_get_frequency(struct dvb_frontend *fe, u32 *frequency)
+{
+	struct tea5767_priv *priv = fe->tuner_priv;
+
+static const struct dvb_tuner_ops tea5767_tuner_ops = {	.set_analog_params = set_radio_freq,
+	.set_config	   = tea5767_set_config,
+	.sleep             = tea5767_standby,
+	.release           = tea5767_release,
+	.release           = dvb_tuner_simple_release,
+	.get_frequency     = tea5767_get_frequency,
+	.get_status        = tea5767_get_status,
+	.get_rf_strength   = tea5767_get_rf_strength,
+
+
